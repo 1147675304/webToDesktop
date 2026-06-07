@@ -1,0 +1,324 @@
+// tools/desktop/native/linux.go
+// Linux 原生窗口定制：通过 GTK Window 调用 GTK3 API
+//
+//   可用能力：
+//     - 窗口透明度
+//     - 隐藏标题栏/边框
+//     - 窗口置顶
+//     - 全屏 / 最大化
+
+//go:build linux
+
+package native
+
+/*
+#cgo pkg-config: gtk+-3.0
+
+#include <gtk/gtk.h>
+#include <gdk/gdk.h>
+#include <string.h>
+#include <stdio.h>
+
+// 确保窗口已实现（realize），创建底层 GdkWindow
+static void ensureRealized(GtkWindow *win) {
+	if (!gtk_widget_get_realized(GTK_WIDGET(win))) {
+		gtk_widget_realize(GTK_WIDGET(win));
+	}
+}
+
+// 设置窗口透明度 (0.0 全透明 ~ 1.0 不透明)
+static void setOpacity(GtkWindow *win, double opacity) {
+	gtk_widget_set_opacity(GTK_WIDGET(win), opacity);
+}
+
+// 移除窗口装饰（标题栏、边框）
+static void setUndecorated(GtkWindow *win) {
+	gtk_window_set_decorated(win, FALSE);
+}
+
+// 强制显示窗口及所有子控件（Wayland 无边框窗口兼容修复）
+static void forceShow(GtkWindow *win) {
+	gtk_widget_show_all(GTK_WIDGET(win));
+	gtk_window_present(win);
+}
+
+// 设置窗口置顶（使用 GDK 级别 API，更可靠）
+static void setKeepAbove(GtkWindow *win) {
+	ensureRealized(win);
+	GdkWindow *gdkWin = gtk_widget_get_window(GTK_WIDGET(win));
+	if (gdkWin) {
+		gdk_window_set_keep_above(gdkWin, TRUE);
+	}
+	gtk_window_set_keep_above(win, TRUE);
+}
+
+// 全屏模式（使用 GDK 级别 API）
+static void setFullscreen(GtkWindow *win) {
+	ensureRealized(win);
+	GdkWindow *gdkWin = gtk_widget_get_window(GTK_WIDGET(win));
+	if (gdkWin) {
+		gdk_window_fullscreen(gdkWin);
+	} else {
+		gtk_window_fullscreen(win);
+	}
+}
+
+// ———— 配置文件尺寸（最大化/全屏恢复时永远使用此尺寸） ————
+// ★ 必须在 setWindowPosition / centerWindow 之前定义
+static int g_configWidth  = 0;
+static int g_configHeight = 0;
+
+static void setConfigSize(int w, int h) {
+	g_configWidth  = w;
+	g_configHeight = h;
+}
+
+// ———— 窗口位置设置 ————
+// pos: ""=跳过 "center"=居中 "x,y"=绝对坐标
+static void setWindowPosition(GtkWindow *win, const char *pos) {
+	if (!pos || !pos[0]) return;
+
+	// ★ 先 resize 到配置尺寸，再获取实际尺寸计算位置
+	if (g_configWidth > 0 && g_configHeight > 0) {
+		gtk_window_resize(win, g_configWidth, g_configHeight);
+	}
+	// 处理待处理的 GTK 事件，确保 resize 生效
+	while (gtk_events_pending()) gtk_main_iteration();
+
+	gint width, height;
+	gtk_window_get_size(win, &width, &height);
+
+	gint x = 0, y = 0;
+	if (strcmp(pos, "center") == 0) {
+		GdkWindow *gdkWin = gtk_widget_get_window(GTK_WIDGET(win));
+		GdkDisplay *display = gdk_window_get_display(gdkWin);
+		GdkMonitor *monitor = gdk_display_get_monitor_at_window(display, gdkWin);
+		GdkRectangle rect;
+		gdk_monitor_get_geometry(monitor, &rect);
+		x = rect.x + (rect.width - width) / 2;
+		y = rect.y + (rect.height - height) / 2;
+	} else if (sscanf(pos, "%d,%d", &x, &y) == 2) {
+		// 直接使用解析的 x, y
+	} else {
+		g_printerr("[native] setWindowPosition: invalid format '%s', expected 'center' or 'x,y'\n", pos);
+		return;
+	}
+	g_print("[native] setWindowPosition: %d,%d (%dx%d)\n", x, y, width, height);
+	gtk_window_move(win, x, y);
+}
+
+// 窗口最大化（使用 GDK 级别 API）
+static void setMaximized(GtkWindow *win) {
+	ensureRealized(win);
+	GdkWindow *gdkWin = gtk_widget_get_window(GTK_WIDGET(win));
+	if (gdkWin) {
+		gdk_window_maximize(gdkWin);
+	} else {
+		gtk_window_maximize(win);
+	}
+}
+
+// 居中窗口到当前显示器（按配置文件尺寸）
+static void centerWindow(GtkWindow *win) {
+	if (g_configWidth <= 0 || g_configHeight <= 0) return;
+	GdkWindow *gdkWin = gtk_widget_get_window(GTK_WIDGET(win));
+	if (!gdkWin) return;
+	GdkDisplay *display = gdk_window_get_display(gdkWin);
+	GdkMonitor *monitor = gdk_display_get_monitor_at_window(display, gdkWin);
+	GdkRectangle rect;
+	gdk_monitor_get_geometry(monitor, &rect);
+	gint x = rect.x + (rect.width  - g_configWidth)  / 2;
+	gint y = rect.y + (rect.height - g_configHeight) / 2;
+	gtk_window_resize(win, g_configWidth, g_configHeight);
+	gtk_window_move(win, x, y);
+}
+
+// ———— 窗口拖拽 / 调整大小 ————
+static void startWindowDrag(GtkWindow *win) {
+	GdkDisplay *display = gdk_display_get_default();
+	GdkSeat *seat = gdk_display_get_default_seat(display);
+	GdkDevice *device = gdk_seat_get_pointer(seat);
+	gint x, y;
+	gdk_device_get_position(device, NULL, &x, &y);
+	gtk_window_begin_move_drag(win, 1, x, y, GDK_CURRENT_TIME);
+}
+
+// mapHTEdgeToGDK 将 Windows HTxxx 边缘常量 (10-17) 映射到 GdkWindowEdge (0-7)。
+static GdkWindowEdge mapHTEdgeToGDK(int edge) {
+	switch (edge) {
+		case 10: return GDK_WINDOW_EDGE_WEST;        // HTLEFT
+		case 11: return GDK_WINDOW_EDGE_EAST;        // HTRIGHT
+		case 12: return GDK_WINDOW_EDGE_NORTH;       // HTTOP
+		case 13: return GDK_WINDOW_EDGE_NORTH_WEST;  // HTTOPLEFT
+		case 14: return GDK_WINDOW_EDGE_NORTH_EAST;  // HTTOPRIGHT
+		case 15: return GDK_WINDOW_EDGE_SOUTH;       // HTBOTTOM
+		case 16: return GDK_WINDOW_EDGE_SOUTH_WEST;  // HTBOTTOMLEFT
+		case 17: return GDK_WINDOW_EDGE_SOUTH_EAST;  // HTBOTTOMRIGHT
+		default: return (GdkWindowEdge)edge;
+	}
+}
+
+static void startWindowResize(GtkWindow *win, int edge) {
+	GdkDisplay *display = gdk_display_get_default();
+	GdkSeat *seat = gdk_display_get_default_seat(display);
+	GdkDevice *device = gdk_seat_get_pointer(seat);
+	gint x, y;
+	gdk_device_get_position(device, NULL, &x, &y);
+
+	// 注意：不在此处做 1×1 前置，拖拽由 GTK 实时接管。
+	gtk_window_begin_resize_drag(win, mapHTEdgeToGDK(edge), 1, x, y, GDK_CURRENT_TIME);
+
+	// 拖拽完成后：1×1 强制 WebKit 释放旧缓冲 → 恢复到当前尺寸
+	gint curW, curH;
+	gtk_window_get_size(win, &curW, &curH);
+	gtk_window_resize(win, 1, 1);
+	while (gtk_events_pending()) gtk_main_iteration();
+	gtk_window_resize(win, curW, curH);
+}
+
+// ———— 窗口控制 ————
+static void closeWindow_gtk(GtkWindow *win) {
+	gtk_window_close(win);
+}
+
+static void toggleMaximize_gtk(GtkWindow *win) {
+	// 1×1 前置：强制 WebKit 释放布局缓存，再执行最大化/还原
+	gtk_window_resize(win, 1, 1);
+	while (gtk_events_pending()) gtk_main_iteration();
+
+	if (gtk_window_is_maximized(win)) {
+		gtk_window_unmaximize(win);
+		// ★ 还原后强制设为配置文件尺寸 + 居中
+		while (gtk_events_pending()) gtk_main_iteration();
+		centerWindow(win);
+	} else {
+		gtk_window_maximize(win);
+	}
+}
+
+static void toggleFullscreen_gtk(GtkWindow *win) {
+	// 1×1 前置：强制 WebKit 释放布局缓存，再执行全屏/退出全屏
+	gtk_window_resize(win, 1, 1);
+	while (gtk_events_pending()) gtk_main_iteration();
+
+	GdkWindow *gdkWin = gtk_widget_get_window(GTK_WIDGET(win));
+	if (gdkWin && gdk_window_get_state(gdkWin) & GDK_WINDOW_STATE_FULLSCREEN) {
+		gtk_window_unfullscreen(win);
+		// ★ 退出全屏后强制设为配置文件尺寸 + 居中
+		while (gtk_events_pending()) gtk_main_iteration();
+		centerWindow(win);
+	} else {
+		gtk_window_fullscreen(win);
+	}
+}
+*/
+import "C"
+import (
+	"unsafe"
+)
+
+// Apply Linux 平台外观配置。
+// 在 w.Dispatch() 回调中调用（确保 UI 线程）。
+// 执行顺序: 全屏/最大化/位置 → 透明度 → 去边框 → 置顶
+func Apply(winPtr unsafe.Pointer, cfg WindowConfig) {
+	win := (*C.GtkWindow)(winPtr)
+
+	// 1. 全屏/最大化/窗口位置（互斥，仅三选一）
+	if cfg.Fullscreen {
+		C.setFullscreen(win)
+	} else if cfg.Maximized {
+		C.setMaximized(win)
+	} else {
+		// 非最大化/非全屏 → resize 到配置尺寸 + 定位
+		if cfg.WindowPosition == "" || cfg.WindowPosition == "center" {
+			C.centerWindow(win)
+		} else {
+			cPos := C.CString(cfg.WindowPosition)
+			C.setWindowPosition(win, cPos)
+			C.free(unsafe.Pointer(cPos))
+		}
+	}
+
+	// 2. 透明度
+	if cfg.Opacity < 1.0 {
+		C.setOpacity(win, C.double(cfg.Opacity))
+	}
+
+	// 3. 去边框（Apply 中的冗余保护，主要去边框工作已由 ApplyPreShow 完成）
+	if cfg.Borderless {
+		C.setUndecorated(win)
+	}
+
+	// 4. 窗口置顶
+	if cfg.AlwaysOnTop {
+		C.setKeepAbove(win)
+	}
+
+	// 5. 强制显示（Wayland 无边框窗口兼容）
+	C.forceShow(win)
+
+	// Acrylic/DarkTitleBar/RoundCorners 为 Windows 专属，Linux 忽略
+}
+
+// ApplyPreShow 在窗口显示前调用（GTK decoration 必须在 show 前设置）。
+func ApplyPreShow(winPtr unsafe.Pointer, cfg WindowConfig) {
+	if cfg.Borderless {
+		C.setUndecorated((*C.GtkWindow)(winPtr))
+	}
+	if cfg.AlwaysOnTop {
+		C.setKeepAbove((*C.GtkWindow)(winPtr))
+	}
+}
+
+// 调整方向常量（与 Windows 一致）
+const (
+	ResizeLeft        = 10
+	ResizeRight       = 11
+	ResizeTop         = 12
+	ResizeTopLeft     = 13
+	ResizeTopRight    = 14
+	ResizeBottom      = 15
+	ResizeBottomLeft  = 16
+	ResizeBottomRight = 17
+)
+
+func SetWebView2BackgroundColor(ctrlPtr unsafe.Pointer, a, r, g, b byte)     {}
+func ReapplyAcrylic(winPtr unsafe.Pointer)                                   {}
+func EnableBorderlessResize(winPtr unsafe.Pointer)                           {}
+func ResizeWebView2Controller(ctrlPtr unsafe.Pointer, winPtr unsafe.Pointer) {}
+
+// SetDefaultWindowSize 保存配置中的窗口尺寸（width × height）。
+// 最大化/全屏恢复时永远使用此尺寸，而非用户拖拽后的尺寸。
+func SetDefaultWindowSize(width, height int) {
+	C.setConfigSize(C.int(width), C.int(height))
+}
+
+// DragWindow 触发窗口拖拽。
+func DragWindow(winPtr unsafe.Pointer) {
+	C.startWindowDrag((*C.GtkWindow)(winPtr))
+}
+
+// ResizeWindow 从指定边缘触发窗口缩放。
+func ResizeWindow(winPtr unsafe.Pointer, edge int) {
+	C.startWindowResize((*C.GtkWindow)(winPtr), C.int(edge))
+}
+
+// CloseWindow 关闭窗口。
+func CloseWindow(winPtr unsafe.Pointer) {
+	C.closeWindow_gtk((*C.GtkWindow)(winPtr))
+}
+
+// ToggleMaximize 最大化/还原切换。
+func ToggleMaximize(winPtr unsafe.Pointer) {
+	C.toggleMaximize_gtk((*C.GtkWindow)(winPtr))
+}
+
+// ToggleFullscreen 全屏切换。
+func ToggleFullscreen(winPtr unsafe.Pointer) {
+	C.toggleFullscreen_gtk((*C.GtkWindow)(winPtr))
+}
+
+// ToggleMinimize 最小化窗口到任务栏。
+func ToggleMinimize(winPtr unsafe.Pointer) {
+	C.gtk_window_iconify((*C.GtkWindow)(winPtr))
+}

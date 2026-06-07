@@ -1,0 +1,33 @@
+# 构建产物
+build/
+vue/
+
+# 编译后的二进制（不应提交）
+webtodesktop
+*.exe
+
+# 打包产物
+desktop.zip
+*.zip
+
+# 示例 Vue 项目（仅保留源码）
+demo/node_modules/
+demo/dist/
+
+# Windows 资源文件（由构建脚本自动生成）
+rsrc.syso
+_icon.rc
+_app.ico
+
+# Go 编译产物
+*.exe
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

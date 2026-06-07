@@ -1,0 +1,75 @@
+# ============================================================
+# WebToDesktop 构建配置文件
+# 构建时通过 embed 嵌入二进制，运行时无需此文件
+# ============================================================
+
+# 应用基本信息
+app:
+  name: "WebToDesktop"
+  version: "1.0.0"
+
+# 安全配置
+security:
+  # AES-256 加密密钥（任意字符串，构建时自动 SHA256 派生为 32 字节密钥）
+  # ★ 开源用户必须修改此密钥！修改后旧的 credentials.dat 将无法解密
+  aes_key: "change-me-to-a-random-string"
+
+# ============================================================
+# 窗口外观配置
+# ============================================================
+# 以下配置构建时嵌入二进制，修改后需重新构建才能生效
+#
+# ★ 重要：若 borderless: true，前端必须做以下适配（详见注释）：
+#   - App.vue 中添加拖拽条、resize 手柄、窗口控制按钮
+#   - Layout.vue 中 el-header 添加 @mousedown.self 拖拽支持
+# ============================================================
+window:
+  title: "后台管理系统"
+  width: 1366
+  height: 768
+
+  # ———— 窗口状态（三选一，优先级: fullscreen > maximized > 普通） ————
+  fullscreen: false     # 全屏：覆盖整个显示器（含任务栏），隐藏一切边框
+  maximized: false      # 最大化：填充工作区（保留任务栏）
+                        # 若都为 false → 普通窗口（width x height）
+
+  # ———— 窗口样式 ————
+  borderless: true      # 无边框窗口（隐藏标题栏）
+                        # ★ 若为 true，前端 APP.vue 需包含：
+                        #   - drag-bar 拖拽条（8px 顶部）
+                        #   - resize 手柄（左/右/下/左下/右下 5个边角）
+                        #   - win-controls 窗口控制按钮（最大化/全屏/关闭）
+  always_on_top: true   # 窗口始终置顶于其他窗口之上
+  opacity: 0.97       # 窗口整体不透明度（0.0=全透明，1.0=不透明）
+                        # 前端无需适配
+  webview_bg_transparent: true  # WebView2 控件背景透明（Windows 专用）
+                        # true : 控件背景透明，毛玻璃可透过网页透明区域显示
+                        # false: 控件背景不透明，网页正常渲染不受影响
+                        # 启用 Acrylic 时自动视为 true
+
+  # ———— 窗口位置（仅非最大化/非全屏时生效） ————
+  # 支持格式：
+  #   ""              空字符串 → 由操作系统决定位置
+  #   "center"        居中显示
+  #   "100,200"       绝对坐标 (x, y)
+  window_position: "center"
+
+  # ———— Windows 专属效果（仅 Windows 平台生效） ————
+  dark_title_bar: false  # 暗色标题栏（Win10 1809+），前端无需适配
+  round_corners: true   # 圆角窗口（Win11），前端无需适配
+  acrylic: true        # Acrylic 毛玻璃背景（Win10+），前端无需适配
+
+# ============================================================
+# 可构建的前端项目列表
+# 每个项目需在自身的 .env.production 中配置:
+#   VITE_REMOTE_API_URL  = 远程 API 服务器地址
+#   VITE_PROXY_PREFIXES  = 需要代理的路径前缀（逗号分隔）
+# 构建时 make 会读取这些配置注入到二进制中
+# ============================================================
+projects:
+  - name: "demo"
+    vue_dir: "demo"
+    description: "WebToDesktop 功能演示"
+  # - name: "another-project"
+  #   vue_dir: "/path/to/another/vue"
+  #   description: "另一个项目"
