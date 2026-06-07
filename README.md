@@ -198,12 +198,9 @@ export default defineConfig({
 
 如果这个项目对你有帮助，欢迎请作者喝杯咖啡 ☕
 
-| 微信 | 支付宝 |
-|:---:|:---:|
-| <img src="assets/wechat.png" width="200" alt="微信赞赏码"> | <img src="assets/alipay.png" width="200" alt="支付宝收款码"> |
-| 微信 | 支付宝 |
-
-> 将你的微信/支付宝收款二维码保存为 `assets/wechat.png` 和 `assets/alipay.png`
+<p align="center">
+  <img src="assets/donate.png" width="220" alt="赞赏码">
+</p>
 
 ## 许可证
 
