@@ -194,6 +194,19 @@ export default defineConfig({
 - Linux: GTK3 + WebKit2GTK 运行时库
 - Windows: Edge WebView2 Runtime（Win10/11 内置，Win7 需手动安装）
 
+## 依赖与致谢
+
+本项目基于以下优秀的开源项目构建：
+
+| 依赖 | 用途 | 许可证 |
+|---|---|---|
+| [webview/webview_go](https://github.com/webview/webview_go) | Go 原生 WebView 绑定 | MIT |
+| [WebKitGTK](https://webkitgtk.org/) | Linux WebView 渲染引擎 | LGPL |
+| [Edge WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) | Windows WebView 渲染引擎 | Proprietary |
+| [gopkg.in/yaml.v3](https://github.com/go-yaml/yaml) | YAML 配置解析 | MIT |
+
+> WebKitGTK (LGPL) 和 Edge WebView2 均为系统级运行时依赖，由用户环境提供，不与本项目二进制捆绑分发，不影响本项目的 MIT 授权。
+
 ## 捐献
 
 如果这个项目对你有帮助，欢迎请作者喝杯咖啡 ☕
