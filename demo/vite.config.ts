@@ -10,12 +10,14 @@ export default defineConfig({
       },
     },
   })],
-  base: './',
+  base: '/',
   server: {
     port: 5173
   },
   build: {
     outDir: 'dist',
-    assetsDir: 'assets'
+    assetsDir: 'assets',
+    target: 'es2015',
+    cssTarget: 'safari12',
   }
 })

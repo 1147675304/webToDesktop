@@ -5,3 +5,8 @@ declare module '*.vue' {
   const component: DefineComponent<{}, {}, any>
   export default component
 }
+
+declare module 'resize-observer-polyfill' {
+  const ResizeObserver: typeof globalThis.ResizeObserver
+  export default ResizeObserver
+}

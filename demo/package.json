@@ -11,6 +11,7 @@
   "dependencies": {
     "element-plus": "^2.14.1",
     "highlight.js": "^11.11.1",
+    "resize-observer-polyfill": "^1.5.1",
     "vue": "^3.4.0",
     "vue-router": "^4.6.4"
   },

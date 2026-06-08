@@ -360,14 +360,21 @@ cmd_clean() {
 
 # ———— 运行 & 调试 ————
 
-# 构建当前平台并运行（带控制台输出，适合调试）
+# 构建当前平台并运行（默认调试模式，输出 [WTD] 日志 + WebView 开发者工具）
 # 不带参数 → 交互式选择项目；带参数 → 直接运行指定项目
+# 若需关闭调试模式: WTD_DEBUG=0 make run
 cmd_run() {
     local project="${1:-}"
     if [ -z "$project" ]; then
         project=$(select_project)
     fi
     cmd_build current "$project"
+
+    # run 命令默认开启调试模式（可通过 WTD_DEBUG=0 显式关闭）
+    if [ "${WTD_DEBUG:-}" != "0" ]; then
+        export WTD_DEBUG=1
+    fi
+
     echo ""
     echo -e "${C_GREEN}>>> 启动应用...${C_RESET}"
     exec "$OUTPUT_DIR/$APP_NAME"
@@ -417,6 +424,11 @@ cmd_run_windows() {
         project=$(select_project)
     fi
     cmd_build windows-console "$project"
+
+    # run-win 命令默认开启调试模式（可通过 WTD_DEBUG=0 显式关闭）
+    if [ "${WTD_DEBUG:-}" != "0" ]; then
+        export WTD_DEBUG=1
+    fi
 
     if command -v wine &>/dev/null; then
         echo ""

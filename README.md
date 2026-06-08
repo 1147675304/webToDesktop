@@ -175,13 +175,79 @@ if (result.credentials?.length) {
 桌面端专属元素使用 `v-if="isDesktop"` 控制显示（`isDesktop` 来自 `useBridge()`）。
 
 ### 路由配置
-`vite.config.js` 必须使用绝对路径：
 
-```javascript
+桌面应用通过本地 HTTP 服务器加载，`vite.config.ts` 使用绝对路径 `'/'`：
+
+```typescript
 export default defineConfig({
     base: '/'
 })
 ```
+### 构建配置
+
+```typescript
+// vite.config.ts
+build: {
+    outDir: 'dist',          // 输出目录，构建脚本会复制到 vue/dist/
+    assetsDir: 'assets',     // 静态资源子目录
+    target: 'es2015',        // JS 编译目标：ES2015（最大兼容性，兼容旧版 WebKitGTK）
+    cssTarget: 'safari12',   // CSS 编译目标：Safari 12（兼容旧版 WebKit）
+}
+```
+
+| 配置项 | 值 | 说明 |
+|--------|-----|------|
+| `outDir` | `'dist'` | 构建产物输出目录 |
+| `assetsDir` | `'assets'` | JS/CSS 等资源存放的子目录 |
+| `target` | `'es2015'` | 仅转译语法，**不 polyfill API**。缺失 API（如 `Promise.allSettled`）需在 `main.ts` 手动补充 |
+| `cssTarget` | `'safari12'` | 确保 CSS 特性兼容旧版 WebKit 渲染引擎 |
+
+## UOS（统信）适配说明
+
+UOS 内置的 WebKitGTK 版本较旧，以下优化确保应用在 UOS 上正常运行：
+
+### 1. 调试模式自动开启
+
+`make run` 默认启用调试模式（`WTD_DEBUG=1`），无需手动加 `DEBUG=1`：
+
+```bash
+make run              # 自动开启调试模式（[WTD] 日志 + WebView 开发者工具）
+make build            # 生产模式（无调试输出）
+WTD_DEBUG=0 make run  # 显式关闭调试模式
+```
+
+实现位置：`scripts/build.sh` → `cmd_run()` / `cmd_run_windows()`
+
+### 2. 调试模式下允许右键菜单
+
+旧版 WebKitGTK 的 DevTools 依赖右键菜单打开。调试模式下不再禁用右键：
+
+- **生产模式**：`contextmenu` 事件被 `preventDefault()`，桌面应用体验
+- **调试模式**：右键菜单正常，可打开「检查元素」调试前端
+
+实现位置：`pkg/webview.go` → `buildInjectJS()`
+
+### 3. Promise.allSettled Polyfill
+
+UOS 内置 WebKitGTK 不支持 ES2020 的 `Promise.allSettled`，在入口文件注入 polyfill：
+
+```typescript
+// demo/src/main.ts
+if (!Promise.allSettled) {
+  Promise.allSettled = function <T>(promises) {
+    return Promise.all(
+      Array.from(promises).map((p) =>
+        Promise.resolve(p).then(
+          (value) => ({ status: 'fulfilled', value }),
+          (reason) => ({ status: 'rejected', reason })
+        )
+      )
+    )
+  }
+}
+```
+
+> 注意：`vite.config.ts` 中 `build.target: 'es2015'` 由 esbuild 处理，仅转译语法不 polyfill API。若前端依赖使用了其他 ES2020+ API，需按同样方式补充 polyfill。
 
 ## 依赖
 

@@ -53,8 +53,12 @@ func buildInjectJS(css string) string {
 		if (!document.head) { setTimeout(injectCSS, 10); return; }
 		var s=document.createElement('style');
 		s.textContent=%q;
-		document.head.appendChild(s);
-		document.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+		document.head.appendChild(s);`
+	if !debugMode {
+		js += `
+		document.addEventListener('contextmenu', function(e){ e.preventDefault(); });`
+	}
+	js += `
 		/* 选中文本自动复制到剪贴板 */
 		document.addEventListener('mouseup', function(){
 			var sel = window.getSelection().toString().trim();

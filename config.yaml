@@ -40,7 +40,7 @@ window:
                         #   - resize 手柄（左/右/下/左下/右下 5个边角）
                         #   - win-controls 窗口控制按钮（最大化/全屏/关闭）
   always_on_top: true   # 窗口始终置顶于其他窗口之上
-  opacity: 0.97       # 窗口整体不透明度（0.0=全透明，1.0=不透明）
+  opacity: 0.9       # 窗口整体不透明度（0.0=全透明，1.0=不透明）
                         # 前端无需适配
   webview_bg_transparent: true  # WebView2 控件背景透明（Windows 专用）
                         # true : 控件背景透明，毛玻璃可透过网页透明区域显示

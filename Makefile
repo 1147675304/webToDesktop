@@ -5,25 +5,20 @@
 #   make                             交互式选择项目并构建
 #   make build PROJECT=<name>        构建指定项目（当前平台）
 #   make build-windows PROJECT=<name> 交叉编译 Windows EXE
-#   make run   PROJECT=<name>        构建并运行（当前平台）
+#   make run   PROJECT=<name>        构建并运行（当前平台，默认调试模式）
 #   make dev   PROJECT=<name>        启动 Vue 开发服务器
 #   make list                        列出所有可构建项目
 #   make clean                       清理构建产物
 #
-# 调试模式（输出 [WTD] 日志 + WebView 开发者工具）:
-#   make DEBUG=1 run PROJECT=<name>
-#   make DEBUG=1 build PROJECT=<name>
+# 调试模式:
+#   make run   → 默认开启调试模式（[WTD] 日志 + WebView 开发者工具）
+#   make build → 默认生产模式（无调试输出）
+#   关闭调试: WTD_DEBUG=0 make run
 #
 # 核心逻辑全部在 scripts/build.sh 中，Makefile 仅做参数转发。
 # ============================================================
 
 BUILD_SCRIPT := ./scripts/build.sh
-
-# ———— 调试模式（设置 WTD_DEBUG=1 传递给构建/运行脚本） ————
-DEBUG ?= 0
-ifeq ($(DEBUG),1)
-    export WTD_DEBUG := 1
-endif
 
 # ———— 默认目标：交互式菜单 ————
 .PHONY: all
