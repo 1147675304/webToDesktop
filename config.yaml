@@ -42,10 +42,13 @@ window:
   always_on_top: true   # 窗口始终置顶于其他窗口之上
   opacity: 0.9       # 窗口整体不透明度（0.0=全透明，1.0=不透明）
                         # 前端无需适配
-  webview_bg_transparent: true  # WebView2 控件背景透明（Windows 专用）
+  webview_bg_transparent: true  # 控件背景透明
                         # true : 控件背景透明，毛玻璃可透过网页透明区域显示
                         # false: 控件背景不透明，网页正常渲染不受影响
                         # 启用 Acrylic 时自动视为 true
+  input_passthrough: false  # 透明区域点击穿透（Linux 专用）
+                        # true : 鼠标可穿过透明区域操作下层窗口
+                        # false: 所有点击由本窗口捕获（与 Windows 行为一致）
 
   # ———— 窗口位置（仅非最大化/非全屏时生效） ————
   # 支持格式：

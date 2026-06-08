@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h2>🔐 凭证加密存储</h2>
+    <h2><el-icon><Lock /></el-icon> 凭证加密存储</h2>
     <p class="desc">使用 AES-256-GCM 加密保存用户登录凭据，密码永不暴露到前端。登录时勾选"记住密码"，代理层自动将请求体中的 <code>__DESKTOP_PWD__</code> 占位符替换为真实密码。</p>
 
     <h3>前端示例代码（Plain JS + Bridge Proxy）</h3>
@@ -91,6 +91,7 @@ async function deleteCred(username) {
 </template>
 
 <script setup lang="ts">
+import { Lock } from '@element-plus/icons-vue'
 import CodeBlock from '../../components/CodeBlock.vue'
 </script>
 

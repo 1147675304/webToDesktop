@@ -1,8 +1,9 @@
 // tools/desktop/native/linux.go
-// Linux 原生窗口定制：通过 GTK Window 调用 GTK3 API
+// Linux 原生窗口定制：通过 GTK Window 调用 GTK3/WebKit2GTK API
 //
 //   可用能力：
 //     - 窗口透明度
+//     - 窗口背景透明（RGBA visual + WebKit WebView 透明背景）
 //     - 隐藏标题栏/边框
 //     - 窗口置顶
 //     - 全屏 / 最大化
@@ -12,10 +13,11 @@
 package native
 
 /*
-#cgo pkg-config: gtk+-3.0
+#cgo pkg-config: gtk+-3.0 webkit2gtk-4.0
 
 #include <gtk/gtk.h>
 #include <gdk/gdk.h>
+#include <webkit2/webkit2.h>
 #include <string.h>
 #include <stdio.h>
 
@@ -211,6 +213,52 @@ static void toggleFullscreen_gtk(GtkWindow *win) {
 		gtk_window_fullscreen(win);
 	}
 }
+
+// ———— 窗口背景透明（Linux 毛玻璃/透明背景效果） ————
+
+// 设置窗口使用 RGBA visual，使窗口支持 alpha 通道（透明）。
+static void setWindowVisualRGBA(GtkWindow *win) {
+	GdkScreen *screen = gtk_window_get_screen(win);
+	GdkVisual *visual = gdk_screen_get_rgba_visual(screen);
+	if (visual) {
+		gtk_widget_set_visual(GTK_WIDGET(win), visual);
+	}
+}
+
+// 启用窗口背景透明：RGBA visual + CSS 透明背景。
+// 使用 GTK CSS Provider 而非 draw 信号，避免阻止子控件（WebView）绘制。
+static void enableWindowBgTransparent(GtkWindow *win) {
+	setWindowVisualRGBA(win);
+
+	GtkCssProvider *provider = gtk_css_provider_new();
+	const char *css = "window { background-color: transparent; }";
+	gtk_css_provider_load_from_data(provider, css, -1, NULL);
+	GtkStyleContext *context = gtk_widget_get_style_context(GTK_WIDGET(win));
+	gtk_style_context_add_provider(context, GTK_STYLE_PROVIDER(provider),
+		GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+	g_object_unref(provider);
+}
+
+// 查找 GtkWindow 的直接子控件 WebKitWebView，设置其背景颜色为透明。
+// webview_go 将 WebKitWebView 作为 GtkWindow 的直接子控件添加。
+static void setWebKitBgTransparent(GtkWindow *win) {
+	GtkWidget *child = gtk_bin_get_child(GTK_BIN(win));
+	if (!child) return;
+
+	// 检查是否为 WebKitWebView 类型（通过 GObject 类型名称）
+	if (g_strcmp0(G_OBJECT_TYPE_NAME(G_OBJECT(child)), "WebKitWebView") == 0) {
+		GdkRGBA transparent = {0.0, 0.0, 0.0, 0.0};
+		webkit_web_view_set_background_color(WEBKIT_WEB_VIEW(child), &transparent);
+	}
+}
+
+// ———— 输入穿透控制 ————
+
+// 显式设置窗口输入区域，防止合成器将透明区域自动穿透。
+// region=NULL → 整个窗口区域接受输入（覆盖合成器默认行为）。
+static void setInputShapeFull(GtkWindow *win) {
+	gtk_widget_input_shape_combine_region(GTK_WIDGET(win), NULL);
+}
 */
 import "C"
 import (
@@ -257,6 +305,16 @@ func Apply(winPtr unsafe.Pointer, cfg WindowConfig) {
 	// 5. 强制显示（Wayland 无边框窗口兼容）
 	C.forceShow(win)
 
+	// 6. WebView 背景透明：在 Dispatch 中执行（此时 WebView 已实现并作为子控件存在）
+	if cfg.WebViewBgTransparent {
+		C.setWebKitBgTransparent(win)
+	}
+
+	// 7. 输入穿透：false=捕获所有点击（显式设置全窗口输入形状）
+	if !cfg.InputPassthrough {
+		C.setInputShapeFull(win)
+	}
+
 	// Acrylic/DarkTitleBar/RoundCorners 为 Windows 专属，Linux 忽略
 }
 
@@ -267,6 +325,10 @@ func ApplyPreShow(winPtr unsafe.Pointer, cfg WindowConfig) {
 	}
 	if cfg.AlwaysOnTop {
 		C.setKeepAbove((*C.GtkWindow)(winPtr))
+	}
+	// 窗口背景透明：必须在 show 前设置 RGBA visual + app-paintable
+	if cfg.WebViewBgTransparent {
+		C.enableWindowBgTransparent((*C.GtkWindow)(winPtr))
 	}
 }
 

@@ -36,6 +36,7 @@ type WindowConfig struct {
 	AlwaysOnTop          bool    `yaml:"always_on_top"`
 	Opacity              float64 `yaml:"opacity"`
 	WebViewBgTransparent bool    `yaml:"webview_bg_transparent"`
+	InputPassthrough     bool    `yaml:"input_passthrough"`
 	WindowPosition       string  `yaml:"window_position"`
 	DarkTitleBar         bool    `yaml:"dark_title_bar"`
 	RoundCorners         bool    `yaml:"round_corners"`
@@ -82,6 +83,7 @@ type WindowConfigData struct {
 	AlwaysOnTop          bool    `json:"always_on_top"`
 	Opacity              float64 `json:"opacity"`
 	WebViewBgTransparent bool    `json:"webview_bg_transparent"`
+	InputPassthrough     bool    `json:"input_passthrough"`
 	WindowPosition       string  `json:"window_position"`
 	DarkTitleBar         bool    `json:"dark_title_bar"`
 	RoundCorners         bool    `json:"round_corners"`
@@ -101,6 +103,7 @@ func UpdateAppWindowConfig(cfg *WindowConfigData) {
 	AppCfg.Window.AlwaysOnTop = cfg.AlwaysOnTop
 	AppCfg.Window.Opacity = cfg.Opacity
 	AppCfg.Window.WebViewBgTransparent = cfg.WebViewBgTransparent
+	AppCfg.Window.InputPassthrough = cfg.InputPassthrough
 	AppCfg.Window.WindowPosition = cfg.WindowPosition
 	AppCfg.Window.DarkTitleBar = cfg.DarkTitleBar
 	AppCfg.Window.RoundCorners = cfg.RoundCorners

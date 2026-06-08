@@ -10,18 +10,20 @@
           :key="m.label"
           @click.stop="m.action?.()"
         >
-          <span class="menu-icon" v-if="m.icon">{{ m.icon }}</span>
+          <span class="menu-icon" v-if="m.icon">
+            <el-icon><component :is="m.icon" /></el-icon>
+          </span>
           <span class="menu-label">{{ m.label }}</span>
         </div>
       </div>
       <span class="drag-title">{{ appInfo.platform === 'browser' ? 'WebToDesktop 演示' : 'WebToDesktop' }}</span>
       <!-- 窗口控制按钮（拖拽条内部 no-drag 区域） -->
       <div class="win-controls no-drag">
-        <button title="最小化" @click="doMinimize">─</button>
-        <button title="最大化" @click="doMaximize">🗖</button>
-        <button title="全屏" @click="doFullscreen">⛶</button>
-        <button title="重启" @click="doRestart">↻</button>
-        <button title="关闭" @click="doClose" class="btn-close">✕</button>
+        <button title="最小化" @click="doMinimize"><el-icon><Minus /></el-icon></button>
+        <button title="最大化" @click="doMaximize"><el-icon><Crop /></el-icon></button>
+        <button title="全屏" @click="doFullscreen"><el-icon><FullScreen /></el-icon></button>
+        <button title="重启" @click="doRestart"><el-icon><RefreshRight /></el-icon></button>
+        <button title="关闭" @click="doClose" class="btn-close"><el-icon><Close /></el-icon></button>
       </div>
     </div>
 
@@ -45,6 +47,7 @@
 <script setup>
 import { provide, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { Setting, Reading, Minus, Crop, FullScreen, RefreshRight, Close } from '@element-plus/icons-vue'
 import { useBridge } from './composables/useBridge.js'
 import { useCredentials } from './composables/useCredentials.js'
 
@@ -56,8 +59,8 @@ const { credList, credForm, loadCreds, saveCred, deleteCred, clearCreds } = useC
 
 // ———— 菜单系统 ————
 const menus = [
-  { label: '偏好设置', icon: '⚙️', action: () => router.push('/preferences') },
-  { label: '文档', icon: '📖', action: () => router.push('/docs') },
+  { label: '偏好设置', icon: Setting, action: () => router.push('/preferences') },
+  { label: '文档', icon: Reading, action: () => router.push('/docs') },
 ]
 
 // ———— 初始化 ————
@@ -99,7 +102,7 @@ provide('clearCreds', clearCreds)
 html { background: #ffffff; }
 
 :root {
-  --bg: #ffffff; --card-bg: #f5f5f5; --border: #e0e0e0;
+  --bg: transparent; --card-bg: transparent; --border: transparent;
   --text: #1a1a1a; --text-secondary: #666666;
   --accent: #333333; --accent-dim: #00000015;
   --green: #555555; --orange: #777777; --red: #444444;

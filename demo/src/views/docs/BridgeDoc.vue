@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h2>🔌 Go↔JS 桥接 API</h2>
+    <h2><el-icon><Switch /></el-icon> Go↔JS 桥接 API</h2>
     <p class="desc">前端通过 Bridge Proxy 直接调用 Go 方法 — <code>bridge.methodName(params)</code>，底层自动转为 <code>window.__lhpanda__('methodName', params)</code>。Go 端通过反射自动注册所有 <code>handle*</code> 方法，新增方法零配置。</p>
 
     <h3>前端调用（Bridge Proxy）</h3>
@@ -79,10 +79,10 @@ func (b *Bridge) registerBuiltins() {
     <table class="api-table">
       <thead><tr><th>JS 方法</th><th>参数</th><th>返回值</th><th>Go 方法</th></tr></thead>
       <tbody>
-        <tr><td colspan="4" class="section">📋 应用信息</td></tr>
+        <tr><td colspan="4" class="section"><el-icon><Tickets /></el-icon> 应用信息</td></tr>
         <tr><td><code>getAppInfo</code></td><td>—</td><td><code>{ platform, arch, version }</code></td><td><code>handleGetAppInfo</code></td></tr>
         <tr><td><code>listMethods</code></td><td>—</td><td><code>{ methods: [...] }</code></td><td><code>handleListMethods</code></td></tr>
-        <tr><td colspan="4" class="section">🔐 凭证管理</td></tr>
+        <tr><td colspan="4" class="section"><el-icon><Lock /></el-icon> 凭证管理</td></tr>
         <tr><td><code>saveCredentials</code></td><td><code>{ username, password }</code></td><td><code>{ saved: true }</code></td><td><code>handleSaveCredentials</code></td></tr>
         <tr><td><code>getCredentials</code></td><td><code>{ username? }</code></td><td><code>{ found, credentials[] }</code></td><td><code>handleGetCredentials</code></td></tr>
         <tr><td><code>deleteCredentials</code></td><td><code>{ username }</code></td><td><code>{ deleted: true }</code></td><td><code>handleDeleteCredentials</code></td></tr>
@@ -94,7 +94,7 @@ func (b *Bridge) registerBuiltins() {
         <tr><td><code>toggleMaximize</code></td><td>—</td><td><code>{ ok: true }</code></td><td><code>handleToggleMaximize</code></td></tr>
         <tr><td><code>toggleFullscreen</code></td><td>—</td><td><code>{ ok: true }</code></td><td><code>handleToggleFullscreen</code></td></tr>
         <tr><td><code>closeWindow</code></td><td>—</td><td><code>{ ok: true }</code></td><td><code>handleCloseWindow</code></td></tr>
-        <tr><td colspan="4" class="section">⚙️ 窗口配置</td></tr>
+        <tr><td colspan="4" class="section"><el-icon><Setting /></el-icon> 窗口配置</td></tr>
         <tr><td><code>getWindowConfig</code></td><td>—</td><td><code>{ title, width, ... }</code></td><td><code>handleGetWindowConfig</code></td></tr>
         <tr><td><code>saveWindowConfig</code></td><td><code>{ title, ... }</code></td><td><code>{ saved, needRestart }</code></td><td><code>handleSaveWindowConfig</code></td></tr>
       </tbody>
@@ -147,6 +147,7 @@ bridge.saveCredentials({u,p})            Bridge.Call("saveCredentials", {u,p})
 </template>
 
 <script setup>
+import { Switch, Tickets, Lock, Setting } from '@element-plus/icons-vue'
 import CodeBlock from '../../components/CodeBlock.vue'
 </script>
 

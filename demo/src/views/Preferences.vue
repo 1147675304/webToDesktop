@@ -1,12 +1,12 @@
 <template>
   <div class="preferences-page">
-    <h1>⚙️ 偏好设置</h1>
+    <h1><el-icon><Setting /></el-icon> 偏好设置</h1>
     <p class="subtitle">配置窗口外观和行为，修改后需<strong>重启应用</strong>生效</p>
 
     <div class="pref-grid">
       <!-- 基本设置 -->
       <section class="card">
-        <h2>📐 基本设置</h2>
+        <h2><el-icon><Tools /></el-icon> 基本设置</h2>
 
         <div class="form-group">
           <label>窗口标题</label>
@@ -41,7 +41,7 @@
 
       <!-- 窗口状态 -->
       <section class="card">
-        <h2>🪟 窗口状态</h2>
+        <h2><el-icon><Monitor /></el-icon> 窗口状态</h2>
 
         <div class="checkbox-group">
           <label class="checkbox-label">
@@ -67,30 +67,46 @@
         </div>
       </section>
 
-      <!-- Windows 专属 -->
+      <!-- 透明与效果（跨平台） -->
       <section class="card">
-        <h2>🪟 Windows 专属效果</h2>
+        <h2><el-icon><BrushFilled /></el-icon> 透明与窗口效果</h2>
+
+        <div class="checkbox-group">
+          <label class="checkbox-label">
+            <input v-model="form.webview_bg_transparent" type="checkbox" />
+            <span>WebView 背景透明</span>
+            <span class="platform-tag">跨平台</span>
+          </label>
+          <p class="hint">（Linux: RGBA 窗口 + WebKit 透明；Windows: WebView2 透明；启用毛玻璃时自动开启）</p>
+        </div>
+
+        <div class="checkbox-group">
+          <label class="checkbox-label">
+            <input v-model="form.input_passthrough" type="checkbox" />
+            <span>透明区域点击穿透</span>
+            <span class="platform-tag linux">Linux</span>
+          </label>
+          <p class="hint">（启用后，鼠标可穿过完全透明区域操作下层窗口；禁用则与 Windows 行为一致）</p>
+        </div>
 
         <div class="checkbox-group">
           <label class="checkbox-label">
             <input v-model="form.acrylic" type="checkbox" />
             <span>Acrylic 毛玻璃背景</span>
+            <span class="platform-tag">Windows</span>
           </label>
-          <label class="checkbox-label">
-            <input v-model="form.webview_bg_transparent" type="checkbox" />
-            <span>WebView 背景透明</span>
-          </label>
-          <p class="hint">（启用毛玻璃时自动开启背景透明）</p>
         </div>
 
         <div class="checkbox-group">
           <label class="checkbox-label">
             <input v-model="form.dark_title_bar" type="checkbox" />
-            <span>暗色标题栏 (Win10 1809+)</span>
+            <span>暗色标题栏</span>
+            <span class="platform-tag">Windows</span>
           </label>
           <label class="checkbox-label">
             <input v-model="form.round_corners" type="checkbox" />
-            <span>圆角窗口 (Win11)</span>
+            <span>圆角窗口</span>
+            <span class="platform-tag">Windows</span>
           </label>
         </div>
       </section>
@@ -98,10 +114,11 @@
       <!-- 操作按钮 -->
       <div class="actions">
         <button class="btn primary" @click="saveConfig" :disabled="saving">
-          {{ saving ? '保存中...' : '💾 保存配置' }}
+          <template v-if="saving">保存中...</template>
+          <template v-else><el-icon><UploadFilled /></el-icon> 保存配置</template>
         </button>
-        <button class="btn" @click="resetForm">↩ 重置为当前值</button>
-        <button class="btn" @click="loadDefaults">🔄 恢复默认值</button>
+        <button class="btn" @click="resetForm"><el-icon><RefreshRight /></el-icon> 重置为当前值</button>
+        <button class="btn" @click="loadDefaults"><el-icon><Refresh /></el-icon> 恢复默认值</button>
       </div>
 
       <div v-if="saveMsg" class="save-msg" :class="saveMsgType">{{ saveMsg }}</div>
@@ -111,6 +128,7 @@
 
 <script setup>
 import { reactive, ref, onMounted, inject } from 'vue'
+import { Setting, Tools, Monitor, BrushFilled, UploadFilled, RefreshRight, Refresh, CircleCheckFilled, CircleCloseFilled } from '@element-plus/icons-vue'
 
 const bridge = inject('bridge', {})
 
@@ -120,6 +138,7 @@ const form = reactive({
   fullscreen: false, maximized: false,
   borderless: true, always_on_top: false,
   opacity: 1, webview_bg_transparent: false,
+  input_passthrough: false,
   window_position: 'center',
   dark_title_bar: false, round_corners: true, acrylic: false,
 })
@@ -147,12 +166,12 @@ async function saveConfig() {
   try {
     const result = await bridge.saveWindowConfig(data)
     console.log('[PREF] save result:', result)
-    saveMsg.value = result.needRestart ? '✅ 配置已保存，重启应用后生效' : '✅ 配置已保存'
+    saveMsg.value = result.needRestart ? '配置已保存，重启应用后生效' : '配置已保存'
     saveMsgType.value = 'ok'
     Object.assign(defaults, form)
   } catch (e) {
     console.error('[PREF] save failed:', e)
-    saveMsg.value = '❌ 保存失败: ' + (e?.message || e)
+    saveMsg.value = '保存失败: ' + (e?.message || e)
     saveMsgType.value = 'err'
   }
   saving.value = false
@@ -173,6 +192,7 @@ function loadDefaults() {
     always_on_top: false,
     opacity: 1,
     webview_bg_transparent: false,
+    input_passthrough: false,
     window_position: 'center',
     dark_title_bar: false,
     round_corners: true,
@@ -222,6 +242,12 @@ function loadDefaults() {
   width: 16px; height: 16px; accent-color: var(--accent);
 }
 .hint { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+
+.platform-tag {
+  font-size: 10px; padding: 1px 5px; border-radius: 3px;
+  background: #00000010; color: var(--text-secondary); margin-left: 4px;
+}
+.platform-tag.linux { background: #f0e6d2; color: #8b6914; }
 
 .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 

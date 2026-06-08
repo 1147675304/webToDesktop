@@ -9,8 +9,11 @@ type WindowConfig struct {
 	// 窗口透明度 (0.0 全透明 ~ 1.0 不透明)，默认 1.0
 	Opacity float64
 
-	// WebView2 控件背景透明（Windows 专用）
+	// WebView 控件背景透明
 	WebViewBgTransparent bool
+
+	// 透明区域点击穿透：false=本窗口捕获所有点击，true=透明区域点击透传到下层（Linux 专用）
+	InputPassthrough bool
 
 	// 是否移除标题栏和边框（无边框窗口）
 	Borderless bool

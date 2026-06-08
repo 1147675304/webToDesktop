@@ -1,12 +1,17 @@
 <template>
   <div class="code-block" ref="root">
-    <button class="copy-btn" @click="doCopy">{{ copied ? '✓ 已复制' : '📋 复制' }}</button>
+    <button class="copy-btn" @click="doCopy">
+      <el-icon v-if="copied"><Check /></el-icon>
+      <el-icon v-else><Tickets /></el-icon>
+      {{ copied ? '已复制' : '复制' }}
+    </button>
     <pre><code><slot /></code></pre>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, nextTick } from 'vue'
+import { Tickets, Check } from '@element-plus/icons-vue'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github.min.css'
 

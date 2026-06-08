@@ -2,24 +2,24 @@
   <div class="docs-layout">
     <!-- 侧边导航 -->
     <nav class="docs-sidebar">
-      <h3>📖 文档</h3>
+      <h3><el-icon><Reading /></el-icon> 文档</h3>
       <router-link to="/docs" exact-active-class="active" class="nav-item">
         <span>概述</span>
       </router-link>
       <router-link to="/docs/credentials" active-class="active" class="nav-item">
-        <span>🔐 凭证加密存储</span>
+        <span><el-icon><Lock /></el-icon> 凭证加密存储</span>
       </router-link>
       <router-link to="/docs/proxy" active-class="active" class="nav-item">
-        <span>🌐 智能网络代理</span>
+        <span><el-icon><Connection /></el-icon> 智能网络代理</span>
       </router-link>
       <router-link to="/docs/window" active-class="active" class="nav-item">
-        <span>🪟 窗口控制</span>
+        <span><el-icon><Monitor /></el-icon> 窗口控制</span>
       </router-link>
       <router-link to="/docs/build" active-class="active" class="nav-item">
-        <span>📦 构建与部署</span>
+        <span><el-icon><Box /></el-icon> 构建与部署</span>
       </router-link>
       <router-link to="/docs/bridge" active-class="active" class="nav-item">
-        <span>🔌 Bridge API</span>
+        <span><el-icon><Switch /></el-icon> Bridge API</span>
       </router-link>
     </nav>
 
@@ -29,6 +29,10 @@
     </main>
   </div>
 </template>
+
+<script setup>
+import { Reading, Lock, Connection, Monitor, Box, Switch } from '@element-plus/icons-vue'
+</script>
 
 <style scoped>
 .docs-layout {

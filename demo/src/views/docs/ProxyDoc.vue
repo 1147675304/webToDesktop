@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h2>🌐 智能网络代理</h2>
+    <h2><el-icon><Connection /></el-icon> 智能网络代理</h2>
     <p class="desc">本地 HTTP 服务拦截匹配前缀的请求，自动注入凭证后转发到远程 API。前端无需关心跨域和鉴权细节，使用标准 <code>fetch</code> 即可。</p>
 
     <h3>前端示例代码（Plain JS + Bridge Proxy）</h3>
@@ -77,6 +77,7 @@ VITE_PROXY_PREFIXES=/api/,/storage/</CodeBlock>
 </template>
 
 <script setup lang="ts">
+import { Connection } from '@element-plus/icons-vue'
 import CodeBlock from '../../components/CodeBlock.vue'
 </script>
 

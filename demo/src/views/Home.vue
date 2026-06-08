@@ -1,7 +1,7 @@
 <template>
   <div>
     <header class="hero">
-      <div class="logo">🖥️</div>
+      <div class="logo"><el-icon :size="56"><Monitor /></el-icon></div>
       <h1>WebToDesktop</h1>
       <p class="subtitle">将任意 Vue 前端项目打包为桌面 EXE 程序</p>
       <div class="badges">
@@ -21,18 +21,33 @@
       <div class="status-item">
         <span class="status-label">桥接状态</span>
         <span class="status-value" :class="bridgeReady ? 'ok' : 'warn'">
-          {{ bridgeReady ? '✅ Go↔JS 已连接' : '⚠️ 浏览器模式（模拟数据）' }}
+          <template v-if="bridgeReady"><el-icon><CircleCheckFilled /></el-icon> Go↔JS 已连接</template>
+          <template v-else><el-icon><WarningFilled /></el-icon> 浏览器模式（模拟数据）</template>
         </span>
       </div>
       <div class="status-item">
         <span class="status-label">窗口模式</span>
         <span class="status-value">{{ isDesktop ? '桌面原生窗口' : '浏览器标签页' }}</span>
       </div>
+      <div class="status-item">
+        <span class="status-label">透明背景</span>
+        <span class="status-value" :class="winCfg.webview_bg_transparent ? 'ok' : ''">
+          <template v-if="winCfg.webview_bg_transparent"><el-icon><CircleCheckFilled /></el-icon> 已启用</template>
+          <template v-else>未启用</template>
+        </span>
+      </div>
+      <div v-if="appInfo.platform === 'linux'" class="status-item">
+        <span class="status-label">点击穿透</span>
+        <span class="status-value" :class="winCfg.input_passthrough ? 'warn' : ''">
+          <template v-if="winCfg.input_passthrough"><el-icon><WarningFilled /></el-icon> 已开启</template>
+          <template v-else>已禁用</template>
+        </span>
+      </div>
     </section>
 
     <div class="demo-grid">
       <section class="card">
-        <h2>🔐 凭证加密存储</h2>
+        <h2><el-icon><Lock /></el-icon> 凭证加密存储</h2>
         <p class="card-desc">AES-256 加密保存用户密码，密码永不暴露到前端</p>
 
         <div class="form-group">
@@ -44,36 +59,36 @@
           <input v-model="credForm.password" type="password" placeholder="输入密码" />
         </div>
         <div class="btn-row">
-          <button class="btn primary" @click="saveCred" :disabled="!credForm.username||!credForm.password">💾 保存凭据</button>
-          <button class="btn" @click="loadCreds">📋 刷新列表</button>
-          <button class="btn danger" @click="clearCreds" :disabled="credList.length===0">🗑 清除全部</button>
+          <button class="btn primary" @click="saveCred" :disabled="!credForm.username||!credForm.password"><el-icon><UploadFilled /></el-icon> 保存凭据</button>
+          <button class="btn" @click="loadCreds"><el-icon><Tickets /></el-icon> 刷新列表</button>
+          <button class="btn danger" @click="clearCreds" :disabled="credList.length===0"><el-icon><Delete /></el-icon> 清除全部</button>
         </div>
 
         <div v-if="credList.length" class="cred-list">
           <div class="cred-item" v-for="c in credList" :key="c.username">
-            <span>👤 {{ c.username }}</span>
+            <span><el-icon><User /></el-icon> {{ c.username }}</span>
             <button class="btn-sm danger" @click="deleteCred(c.username)">删除</button>
           </div>
         </div>
         <p v-else class="empty-hint">暂无已保存的凭据</p>
 
         <div class="tip-box">
-          💡 <strong>工作原理</strong>：登录时勾选"记住密码"→调用 <code>saveCredentials</code>→AES 加密存入本地。
+          <el-icon><InfoFilled /></el-icon> <strong>工作原理</strong>：登录时勾选"记住密码"→调用 <code>saveCredentials</code>→AES 加密存入本地。
           下次打开页面时，请求头自动携带 <code>X-Credential-Username</code>，代理层将请求体中的
           <code>__DESKTOP_PWD__</code> 替换为真实密码后转发到远程 API。
         </div>
       </section>
 
       <section class="card">
-        <h2>🌐 智能网络代理</h2>
+        <h2><el-icon><Connection /></el-icon> 智能网络代理</h2>
         <div class="proxy-flow">
-          <div class="flow-step"><div class="flow-icon">🖥️</div><div class="flow-label">前端请求</div><div class="flow-detail">fetch('/api/users')</div></div>
+          <div class="flow-step"><div class="flow-icon"><el-icon><Monitor /></el-icon></div><div class="flow-label">前端请求</div><div class="flow-detail">fetch('/api/users')</div></div>
           <div class="flow-arrow">→</div>
-          <div class="flow-step"><div class="flow-icon">🔀</div><div class="flow-label">代理层匹配</div><div class="flow-detail">匹配前缀 /api/</div></div>
+          <div class="flow-step"><div class="flow-icon"><el-icon><Sort /></el-icon></div><div class="flow-label">代理层匹配</div><div class="flow-detail">匹配前缀 /api/</div></div>
           <div class="flow-arrow">→</div>
-          <div class="flow-step"><div class="flow-icon">🔑</div><div class="flow-label">凭证注入</div><div class="flow-detail">替换 __DESKTOP_PWD__</div></div>
+          <div class="flow-step"><div class="flow-icon"><el-icon><Key /></el-icon></div><div class="flow-label">凭证注入</div><div class="flow-detail">替换 __DESKTOP_PWD__</div></div>
           <div class="flow-arrow">→</div>
-          <div class="flow-step"><div class="flow-icon">☁️</div><div class="flow-label">远程 API</div><div class="flow-detail">https://api.example.com</div></div>
+          <div class="flow-step"><div class="flow-icon"><el-icon><Cloudy /></el-icon></div><div class="flow-label">远程 API</div><div class="flow-detail">https://api.example.com</div></div>
         </div>
 
         <div class="proxy-rules">
@@ -95,22 +110,22 @@
       </section>
 
       <section class="card">
-        <h2>🪟 窗口控制</h2>
+        <h2><el-icon><Monitor /></el-icon> 窗口控制</h2>
         <p class="card-desc">无边框窗口下的交互演示（桌面模式生效）</p>
         <div class="btn-row">
-          <button class="btn" @click="dragWindow">🖱️ 拖拽窗口</button>
-          <button class="btn" @click="toggleMaximize">🗖 最大化/还原</button>
-          <button class="btn" @click="toggleFullscreen">⛶ 全屏切换</button>
-          <button class="btn danger" @click="closeWindow">✕ 关闭窗口</button>
+          <button class="btn" @click="dragWindow"><el-icon><Pointer /></el-icon> 拖拽窗口</button>
+          <button class="btn" @click="toggleMaximize"><el-icon><Crop /></el-icon> 最大化/还原</button>
+          <button class="btn" @click="toggleFullscreen"><el-icon><FullScreen /></el-icon> 全屏切换</button>
+          <button class="btn danger" @click="closeWindow"><el-icon><Close /></el-icon> 关闭窗口</button>
         </div>
         <div class="tip-box" style="margin-top:12px">
-          💡 顶部区域可拖拽移动窗口。边缘 6px 范围内可拖拽调整窗口大小。
+          <el-icon><InfoFilled /></el-icon> 顶部区域可拖拽移动窗口。边缘 6px 范围内可拖拽调整窗口大小。
           <strong>桌面模式下</strong>点击按钮实际控制窗口，<strong>浏览器模式下</strong>仅显示提示。
         </div>
       </section>
 
       <section class="card">
-        <h2>📦 构建命令</h2>
+        <h2><el-icon><Box /></el-icon> 构建命令</h2>
         <div class="commands">
           <div class="cmd" v-for="c in commands" :key="c.cmd">
             <code class="cmd-code">{{ c.cmd }}</code>
@@ -123,12 +138,14 @@
 </template>
 
 <script setup>
-import { inject, ref, reactive } from 'vue'
+import { inject, ref, reactive, onMounted } from 'vue'
+import { Monitor, CircleCheckFilled, WarningFilled, Lock, Connection, Delete, Key, User, Sort, Cloudy, Box, Tickets, Crop, FullScreen, Close, Pointer, InfoFilled, UploadFilled } from '@element-plus/icons-vue'
 
 const bridge = inject('bridge', {})
 const appInfo = inject('appInfo', ref({ platform: 'browser', arch: 'x64' }))
 const bridgeReady = inject('bridgeReady', ref(false))
 const isDesktop = inject('isDesktop', ref(false))
+const winCfg = reactive({ webview_bg_transparent: false, input_passthrough: false })
 const credList = inject('credList', ref([]))
 const credForm = inject('credForm', reactive({ username: '', password: '' }))
 const saveCredFn = inject('saveCred', () => {})
@@ -148,6 +165,16 @@ const commands = [
   { cmd: 'make list', desc: '列出所有可构建项目' },
   { cmd: 'make clean', desc: '清理构建产物' }
 ]
+
+onMounted(async () => {
+  try {
+    const cfg = await bridge.getWindowConfig()
+    if (cfg) {
+      winCfg.webview_bg_transparent = cfg.webview_bg_transparent || cfg.acrylic
+      winCfg.input_passthrough = cfg.input_passthrough
+    }
+  } catch (e) { /* browser mode */ }
+})
 
 async function saveCred() { saveCredFn() }
 async function loadCreds() { loadCredsFn() }

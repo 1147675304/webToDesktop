@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h2>🪟 窗口控制</h2>
+    <h2><el-icon><Monitor /></el-icon> 窗口控制</h2>
     <p class="desc">无边框窗口下通过 Go Bridge 调用原生平台 API 控制窗口行为。支持拖拽、缩放、最小化、最大化、全屏、关闭、重启。</p>
 
     <h3>前端示例代码</h3>
@@ -105,6 +105,7 @@ function resize(edge)      { call('resizeWindow', { edge }) }
 </template>
 
 <script setup lang="ts">
+import { Monitor } from '@element-plus/icons-vue'
 import CodeBlock from '../../components/CodeBlock.vue'
 </script>
 

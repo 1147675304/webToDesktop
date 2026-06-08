@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h2>📦 构建与部署</h2>
+    <h2><el-icon><Box /></el-icon> 构建与部署</h2>
     <p class="desc">使用 Makefile 管理构建流程，支持交叉编译 Windows EXE（含图标）和 Linux 桌面版。</p>
 
     <h3>构建命令</h3>
@@ -86,6 +86,7 @@ sudo apt install gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64</CodeBlock>
 </template>
 
 <script setup lang="ts">
+import { Box } from '@element-plus/icons-vue'
 import CodeBlock from '../../components/CodeBlock.vue'
 </script>
 

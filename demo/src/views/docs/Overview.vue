@@ -1,32 +1,36 @@
 <template>
   <div>
-    <h2>📖 概述</h2>
+    <h2><el-icon><Reading /></el-icon> 概述</h2>
     <p class="intro">WebToDesktop 将任意 Vue 前端项目打包为桌面 EXE 程序，提供以下核心能力：</p>
 
     <div class="feature-cards">
       <router-link to="/docs/credentials" class="f-card">
-        <span class="f-icon">🔐</span>
+        <span class="f-icon"><el-icon><Lock /></el-icon></span>
         <span class="f-title">凭证加密存储</span>
         <span class="f-desc">AES-256 加密保存用户密码，密码永不暴露到前端</span>
       </router-link>
       <router-link to="/docs/proxy" class="f-card">
-        <span class="f-icon">🌐</span>
+        <span class="f-icon"><el-icon><Connection /></el-icon></span>
         <span class="f-title">智能网络代理</span>
         <span class="f-desc">请求自动匹配前缀 → 凭证注入 → 转发远程 API</span>
       </router-link>
       <router-link to="/docs/window" class="f-card">
-        <span class="f-icon">🪟</span>
+        <span class="f-icon"><el-icon><Monitor /></el-icon></span>
         <span class="f-title">窗口控制</span>
         <span class="f-desc">无边框窗口拖拽/缩放/最大化/全屏/最小化 API</span>
       </router-link>
       <router-link to="/docs/build" class="f-card">
-        <span class="f-icon">📦</span>
+        <span class="f-icon"><el-icon><Box /></el-icon></span>
         <span class="f-title">构建与部署</span>
         <span class="f-desc">make 命令、交叉编译、配置文件说明</span>
       </router-link>
     </div>
   </div>
 </template>
+
+<script setup>
+import { Reading, Lock, Connection, Box, Monitor } from '@element-plus/icons-vue'
+</script>
 
 <style scoped>
 .intro { color: var(--text-secondary); font-size: 14px; margin-bottom: 24px; }

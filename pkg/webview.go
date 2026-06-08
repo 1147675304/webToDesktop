@@ -127,6 +127,7 @@ func RunApp(addr string, server *http.Server, store *Store, projectName string, 
 		RoundCorners:         AppCfg.Window.RoundCorners,
 		Acrylic:              AppCfg.Window.Acrylic,
 		WebViewBgTransparent: AppCfg.Window.Acrylic || AppCfg.Window.WebViewBgTransparent,
+		InputPassthrough:     AppCfg.Window.InputPassthrough,
 	}
 
 	dbg("phase 1: ApplyPreShow...")
