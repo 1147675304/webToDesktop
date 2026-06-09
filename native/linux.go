@@ -259,9 +259,44 @@ static void setWebKitBgTransparent(GtkWindow *win) {
 static void setInputShapeFull(GtkWindow *win) {
 	gtk_widget_input_shape_combine_region(GTK_WIDGET(win), NULL);
 }
+
+// 禁用 WebKitWebView 的 GPU 硬件加速（仅影响当前 WebView 内容渲染）。
+// 用于龙芯+麒麟等 GPU 驱动与合成器不兼容的平台。
+static void disableWebKitHardwareAccel(GtkWindow *win) {
+	GtkWidget *child = gtk_bin_get_child(GTK_BIN(win));
+	if (!child) return;
+	if (g_strcmp0(G_OBJECT_TYPE_NAME(G_OBJECT(child)), "WebKitWebView") == 0) {
+		WebKitSettings *settings = webkit_web_view_get_settings(WEBKIT_WEB_VIEW(child));
+		webkit_settings_set_hardware_acceleration_policy(settings,
+			WEBKIT_HARDWARE_ACCELERATION_POLICY_NEVER);
+		g_print("[native] WebKit hardware acceleration disabled\n");
+	}
+}
+
+// 设置应用默认图标（在窗口创建前调用，所有窗口自动继承）。
+static void setDefaultAppIcon(const char *path) {
+	GError *err = NULL;
+	gtk_window_set_default_icon_from_file(path, &err);
+	if (err) {
+		g_printerr("[native] setDefaultAppIcon failed: %s\n", err->message);
+		g_error_free(err);
+	}
+}
+
+// 从 PNG 文件设置单个窗口图标。
+static void setWindowIcon(GtkWindow *win, const char *path) {
+	GError *err = NULL;
+	gtk_window_set_icon_from_file(win, path, &err);
+	if (err) {
+		g_printerr("[native] setWindowIcon failed: %s\n", err->message);
+		g_error_free(err);
+	}
+}
 */
 import "C"
 import (
+	"os"
+	"strings"
 	"unsafe"
 )
 
@@ -349,6 +384,26 @@ func ReapplyAcrylic(winPtr unsafe.Pointer)                                   {}
 func EnableBorderlessResize(winPtr unsafe.Pointer)                           {}
 func ResizeWebView2Controller(ctrlPtr unsafe.Pointer, winPtr unsafe.Pointer) {}
 
+// DisableWebKitHardwareAccel 禁用 WebKit 渲染的 GPU 硬件加速。
+// 龙芯+麒麟等平台 GPU 驱动不兼容时调用，仅影响 WebView 内容，不影响窗口合成。
+func DisableWebKitHardwareAccel(winPtr unsafe.Pointer) {
+	C.disableWebKitHardwareAccel((*C.GtkWindow)(winPtr))
+}
+
+// SetWindowIcon 从 PNG 文件路径设置窗口图标。
+func SetWindowIcon(winPtr unsafe.Pointer, iconPath string) {
+	cPath := C.CString(iconPath)
+	C.setWindowIcon((*C.GtkWindow)(winPtr), cPath)
+	C.free(unsafe.Pointer(cPath))
+}
+
+// SetDefaultAppIcon 设置应用默认图标（窗口创建前调用，所有窗口自动继承）。
+func SetDefaultAppIcon(iconPath string) {
+	cPath := C.CString(iconPath)
+	C.setDefaultAppIcon(cPath)
+	C.free(unsafe.Pointer(cPath))
+}
+
 // SetDefaultWindowSize 保存配置中的窗口尺寸（width × height）。
 // 最大化/全屏恢复时永远使用此尺寸，而非用户拖拽后的尺寸。
 func SetDefaultWindowSize(width, height int) {
@@ -383,4 +438,45 @@ func ToggleFullscreen(winPtr unsafe.Pointer) {
 // ToggleMinimize 最小化窗口到任务栏。
 func ToggleMinimize(winPtr unsafe.Pointer) {
 	C.gtk_window_iconify((*C.GtkWindow)(winPtr))
+}
+
+// x11SocketExists 检查 X11 Unix socket 是否实际存在。
+func x11SocketExists(display string) bool {
+	idx := strings.LastIndex(display, ":")
+	if idx < 0 {
+		return false
+	}
+	numStr := display[idx+1:]
+	if dotIdx := strings.IndexByte(numStr, '.'); dotIdx >= 0 {
+		numStr = numStr[:dotIdx]
+	}
+	if numStr == "" {
+		return false
+	}
+	_, err := os.Stat("/tmp/.X11-unix/X" + numStr)
+	return err == nil
+}
+
+// waylandSocketExists 检查 Wayland socket 是否实际存在。
+func waylandSocketExists(display string) bool {
+	dir := os.Getenv("XDG_RUNTIME_DIR")
+	if dir == "" {
+		dir = "/run/user/"
+	}
+	if _, err := os.Stat(dir + "/" + display); err == nil {
+		return true
+	}
+	_, err := os.Stat("/mnt/wslg/runtime-dir/" + display)
+	return err == nil
+}
+
+// HasDisplay 检查是否有可用的显示服务器（X11 或 Wayland）。
+func HasDisplay() bool {
+	if d := os.Getenv("DISPLAY"); d != "" && x11SocketExists(d) {
+		return true
+	}
+	if d := os.Getenv("WAYLAND_DISPLAY"); d != "" && waylandSocketExists(d) {
+		return true
+	}
+	return false
 }

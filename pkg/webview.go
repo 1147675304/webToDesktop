@@ -7,13 +7,41 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"runtime"
 	"runtime/debug"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/lhpanda/webtodesktop/native"
 	webview "github.com/webview/webview_go"
 )
+
+// isWSL 检测当前是否运行在 WSL（Windows Subsystem for Linux）环境中。
+func isWSL() bool {
+	// 方式1: 检查 WSL 专有文件
+	if _, err := os.Stat("/proc/sys/fs/binfmt_misc/WSLInterop"); err == nil {
+		return true
+	}
+	// 方式2: 检查 /proc/version 是否包含 "microsoft" 或 "WSL"
+	if data, err := os.ReadFile("/proc/version"); err == nil {
+		lower := strings.ToLower(string(data))
+		if strings.Contains(lower, "microsoft") || strings.Contains(lower, "wsl") {
+			return true
+		}
+	}
+	// 方式3: 检查 WSL 环境变量
+	if os.Getenv("WSL_DISTRO_NAME") != "" {
+		return true
+	}
+	return false
+}
+
+// isLoongArch 检测当前是否运行在龙芯 (loong64) 架构。
+func isLoongArch() bool {
+	return runtime.GOARCH == "loong64"
+}
 
 // BridgeBinder 桥接绑定接口，由 bridge.Bridge 实现。
 // 避免 pkg → pkg/bridge 循环导入。
@@ -41,9 +69,39 @@ func init() {
 }
 
 func dbg(format string, args ...interface{}) {
+	msg := fmt.Sprintf("[WTD] "+format+"\n", args...)
 	if debugMode {
-		fmt.Printf("[WTD] "+format+"\n", args...)
+		fmt.Print(msg)
 	}
+	// 始终写入日志文件，避免会话崩溃时丢失日志
+	writeLog(msg)
+}
+
+// logFile 调试日志文件路径
+var logFile string
+
+func initLogFile() {
+	if logFile != "" || !debugMode {
+		return
+	}
+	// 仅调试模式写入日志文件
+	logFile = filepath.Join(".", "wtd-debug.log")
+	os.WriteFile(logFile, nil, 0644)
+	abs, _ := filepath.Abs(logFile)
+	logFile = abs
+}
+
+func writeLog(msg string) {
+	if logFile == "" {
+		return
+	}
+	f, err := os.OpenFile(logFile, os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	f.WriteString(msg)
+	f.Sync() // 立即刷盘，确保崩溃前写入
 }
 
 // buildInjectJS 构建注入到 WebView 的初始化 JS。
@@ -84,6 +142,12 @@ func buildInjectJS(css string) string {
 // RunApp 使用系统原生 WebView 创建独立窗口。
 // br 是桥接绑定器（bridge.Bridge），关联 WebView 窗口后绑定到 JS。
 func RunApp(addr string, server *http.Server, store *Store, projectName string, br BridgeBinder) {
+	initLogFile()
+	defer func() {
+		if logFile != "" {
+			dbg("日志文件: %s", logFile)
+		}
+	}()
 	dbg("=== runApp start ===")
 	dbg("addr=%s, width=%d, height=%d, borderless=%v",
 		addr, AppCfg.Window.Width, AppCfg.Window.Height, AppCfg.Window.Borderless)
@@ -94,17 +158,49 @@ func RunApp(addr string, server *http.Server, store *Store, projectName string, 
 	// ★ 平台特定初始化（Windows: 设置 WebView2 透明背景等）
 	platformInit()
 
+	// ★ 龙芯 GPU 硬加速与 WebKit 不兼容，仅禁用 WebView 内容渲染的 GPU 加速
+	disableGPU := isLoongArch()
+
+	// 检查桌面显示服务器是否可用（Linux: DISPLAY/WAYLAND_DISPLAY）
+	if !native.HasDisplay() {
+		if isWSL() {
+			// WSL 环境：自动配置 DISPLAY=:0（兼容 WSLg 和常见 X Server）
+			fmt.Fprintln(os.Stderr, "[WTD] 检测到 WSL 环境，自动设置 DISPLAY=:0...")
+			os.Setenv("DISPLAY", ":0")
+			if !native.HasDisplay() {
+				// WSLg 可能使用 /mnt/wslg 下的 Wayland socket
+				fmt.Fprintln(os.Stderr, "[WTD] 尝试 WSLg Wayland 配置...")
+				os.Setenv("WAYLAND_DISPLAY", "wayland-0")
+				os.Setenv("XDG_RUNTIME_DIR", "/mnt/wslg/runtime-dir")
+				if !native.HasDisplay() {
+					fmt.Fprintln(os.Stderr, "\n错误: 未检测到可用的桌面显示服务器。")
+					fmt.Fprintln(os.Stderr, "  WSL 环境下请确保已安装 WSLg（Windows 11 默认包含），")
+					fmt.Fprintln(os.Stderr, "  或安装 VcXsrv/Xming 等第三方 X Server 并运行: export DISPLAY=$(hostname).local:0")
+					fmt.Fprintln(os.Stderr, "  Windows 下更推荐直接使用原生 exe 版本。")
+					os.Exit(1)
+				}
+			}
+		} else {
+			fmt.Fprintln(os.Stderr, "\n错误: 未检测到可用的桌面显示服务器。")
+			fmt.Fprintln(os.Stderr, "  Linux 桌面环境需要运行 X11 或 Wayland 显示服务器。")
+			fmt.Fprintln(os.Stderr, "  当前环境可能为无图形界面的服务器或 SSH 会话。")
+			os.Exit(1)
+		}
+	}
+
 	dbg("creating WebView...")
+	dbg("STEP-1: webview.New")
 	w := webview.New(debugMode)
-	dbg("WebView created")
+	dbg("STEP-1: ok, WebView created")
 	defer func() {
 		dbg("destroying WebView...")
 		w.Destroy()
 		dbg("WebView destroyed")
 	}()
 
+	dbg("STEP-2: SetSize(1,1)")
 	w.SetSize(1, 1, webview.HintNone)
-	dbg("initial size set to 1x1")
+	dbg("STEP-2: ok")
 
 	title := projectName
 	if title == "" {
@@ -113,8 +209,15 @@ func RunApp(addr string, server *http.Server, store *Store, projectName string, 
 	if title == "" {
 		title = "WebToDesktop"
 	}
+	dbg("STEP-3: SetTitle")
 	w.SetTitle(title)
-	dbg("title set: %s", title)
+	dbg("STEP-3: ok, title=%s", title)
+
+	// ★ 龙芯+麒麟：禁用 WebKit GPU 硬加速（仅影响 WebView 内容渲染）
+	if disableGPU {
+		native.DisableWebKitHardwareAccel(w.Window())
+		dbg("WebKit hardware acceleration disabled for compatibility")
+	}
 
 	winCfg := native.WindowConfig{
 		Opacity:              AppCfg.Window.Opacity,
@@ -126,16 +229,19 @@ func RunApp(addr string, server *http.Server, store *Store, projectName string, 
 		DarkTitleBar:         AppCfg.Window.DarkTitleBar,
 		RoundCorners:         AppCfg.Window.RoundCorners,
 		Acrylic:              AppCfg.Window.Acrylic,
-		WebViewBgTransparent: AppCfg.Window.Acrylic || AppCfg.Window.WebViewBgTransparent,
+		WebViewBgTransparent: (AppCfg.Window.Acrylic && runtime.GOOS == "windows") || AppCfg.Window.WebViewBgTransparent,
 		InputPassthrough:     AppCfg.Window.InputPassthrough,
 	}
 
-	dbg("phase 1: ApplyPreShow...")
+	dbg("STEP-4: ApplyPreShow (borderless=%v, opactiy=%.1f, transparent=%v, keeptop=%v)",
+		winCfg.Borderless, winCfg.Opacity, winCfg.WebViewBgTransparent, winCfg.AlwaysOnTop)
 	native.ApplyPreShow(w.Window(), winCfg)
+	dbg("STEP-4: ok")
 
-	dbg("setting size to %dx%d", AppCfg.Window.Width, AppCfg.Window.Height)
+	dbg("STEP-5: SetSize %dx%d", AppCfg.Window.Width, AppCfg.Window.Height)
 	w.SetSize(AppCfg.Window.Width, AppCfg.Window.Height, webview.HintNone)
 	native.SetDefaultWindowSize(AppCfg.Window.Width, AppCfg.Window.Height)
+	dbg("STEP-5: ok")
 
 	// ★ 平台特定窗口显示后处理（Windows: 重新应用 Acrylic 毛玻璃）
 	platformOnShow(w.Window())
@@ -150,13 +256,15 @@ func RunApp(addr string, server *http.Server, store *Store, projectName string, 
 		}
 	}
 
-	dbg("Init: injecting CSS + contextmenu block...")
+	dbg("STEP-6: Init (inject CSS)")
 	w.Init(buildInjectJS(injectCSS))
+	dbg("STEP-6: ok")
 
-	dbg("Navigate: %s", addr)
+	dbg("STEP-7: Navigate -> %s", addr)
 	w.Navigate(addr)
+	dbg("STEP-7: ok")
 
-	dbg("phase 2: Dispatch (post-show config)...")
+	dbg("STEP-8: Dispatch (Apply post-show config)")
 	w.Dispatch(func() {
 		func() {
 			defer func() {
@@ -165,9 +273,13 @@ func RunApp(addr string, server *http.Server, store *Store, projectName string, 
 				}
 			}()
 			native.Apply(w.Window(), winCfg)
+			if AppIconPath != "" {
+				native.SetWindowIcon(w.Window(), AppIconPath)
+			}
 			platformOnShow(w.Window())
 		}()
 	})
+	dbg("STEP-8: dispatched")
 
 	go func() {
 		<-sigCh
@@ -175,10 +287,13 @@ func RunApp(addr string, server *http.Server, store *Store, projectName string, 
 		w.Terminate()
 	}()
 
-	dbg("entering main loop (w.Run)...")
+	dbg("STEP-9: w.Run (main loop)")
 	w.Run()
-	dbg("main loop exited")
+	dbg("STEP-9: main loop exited")
 
 	ShutdownServer(server, 3*time.Second)
 	dbg("=== runApp end ===")
+	if debugMode {
+		fmt.Fprintf(os.Stderr, "\n[WTD] 调试日志: %s\n", logFile)
+	}
 }

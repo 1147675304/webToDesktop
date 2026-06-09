@@ -28,10 +28,15 @@ func ResizeWindow(winPtr unsafe.Pointer, edge int) {}
 func CloseWindow(winPtr unsafe.Pointer)            {}
 func ToggleMaximize(winPtr unsafe.Pointer)         {}
 func ToggleFullscreen(winPtr unsafe.Pointer)       {}
-func ToggleMinimize(winPtr unsafe.Pointer)         {}
+
+// HasDisplay 在其他平台上始终返回 true。
+func HasDisplay() bool { return true }
 
 func SetWebView2BackgroundColor(ctrlPtr unsafe.Pointer, a, r, g, b byte)     {}
 func ReapplyAcrylic(winPtr unsafe.Pointer)                                   {}
 func EnableBorderlessResize(winPtr unsafe.Pointer)                           {}
 func ResizeWebView2Controller(ctrlPtr unsafe.Pointer, winPtr unsafe.Pointer) {}
 func SetDefaultWindowSize(width, height int)                                 {}
+func SetWindowIcon(winPtr unsafe.Pointer, iconPath string)                   {}
+func SetDefaultAppIcon(iconPath string)                                      {}
+func DisableWebKitHardwareAccel(winPtr unsafe.Pointer)                       {}

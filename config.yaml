@@ -42,9 +42,11 @@ window:
   always_on_top: true   # 窗口始终置顶于其他窗口之上
   opacity: 0.9       # 窗口整体不透明度（0.0=全透明，1.0=不透明）
                         # 前端无需适配
-  webview_bg_transparent: true  # 控件背景透明
+  webview_bg_transparent: false  # 控件背景透明（实验性功能，仅 GNOME/KDE 测试通过）
                         # true : 控件背景透明，毛玻璃可透过网页透明区域显示
                         # false: 控件背景不透明，网页正常渲染不受影响
+                        # ⚠️ 部分 Linux 桌面环境（如麒麟 UKUI）启用此项会导致
+                        #    合成器崩溃，请确认你的桌面环境支持后再启用
                         # 启用 Acrylic 时自动视为 true
   input_passthrough: false  # 透明区域点击穿透（Linux 专用）
                         # true : 鼠标可穿过透明区域操作下层窗口
@@ -60,7 +62,7 @@ window:
   # ———— Windows 专属效果（仅 Windows 平台生效） ————
   dark_title_bar: false  # 暗色标题栏（Win10 1809+），前端无需适配
   round_corners: true   # 圆角窗口（Win11），前端无需适配
-  acrylic: true        # Acrylic 毛玻璃背景（Win10+），前端无需适配
+  acrylic: false       # Acrylic 毛玻璃背景（仅 Windows 生效），前端无需适配
 
 # ============================================================
 # 可构建的前端项目列表
@@ -73,6 +75,6 @@ projects:
   - name: "demo"
     vue_dir: "demo"
     description: "WebToDesktop 功能演示"
-  # - name: "another-project"
-  #   vue_dir: "/path/to/another/vue"
-  #   description: "另一个项目"
+  - name: "cs"
+    vue_dir: "../xiaoshao/vue"
+    description: "另一个项目"

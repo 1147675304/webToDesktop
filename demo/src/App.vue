@@ -4,6 +4,7 @@
     <div class="drag-bar" :class="{ 'drag-native': isWindows }" @mousedown="onDragBarMousedown">
       <!-- 菜单按钮（no-drag 区域，不触发窗口拖拽） -->
       <div class="menubar">
+        <img class="menu-logo" src="/favicon.png" alt="logo" />
         <div
           class="menu-item no-drag"
           v-for="m in menus"
@@ -47,7 +48,7 @@
 <script setup>
 import { provide, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { Setting, Reading, Minus, Crop, FullScreen, RefreshRight, Close } from '@element-plus/icons-vue'
+import { Setting, Reading, HomeFilled, Minus, Crop, FullScreen, RefreshRight, Close } from '@element-plus/icons-vue'
 import { useBridge } from './composables/useBridge.js'
 import { useCredentials } from './composables/useCredentials.js'
 
@@ -59,6 +60,7 @@ const { credList, credForm, loadCreds, saveCred, deleteCred, clearCreds } = useC
 
 // ———— 菜单系统 ————
 const menus = [
+  { label: '首页', icon: HomeFilled, action: () => router.push('/') },
   { label: '偏好设置', icon: Setting, action: () => router.push('/preferences') },
   { label: '文档', icon: Reading, action: () => router.push('/docs') },
 ]
@@ -152,6 +154,7 @@ body {
 .menu-item:hover { background: #e8e8e8; color: var(--text); }
 .menu-icon { font-size: 14px; flex-shrink: 0; }
 .menu-label { user-select: none; }
+.menu-logo { width: 18px; height: 18px; margin-right: 4px; flex-shrink: 0; }
 
 /* ———— 拖拽条标题 ———— */
 .win-controls {

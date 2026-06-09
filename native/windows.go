@@ -518,6 +518,15 @@ func ResizeWebView2Controller(ctrlPtr unsafe.Pointer, winPtr unsafe.Pointer) {
 	C.resizeWebView2Controller(ctrlPtr, (C.HWND)(winPtr))
 }
 
+// SetWindowIcon Windows 图标从 EXE 资源加载（非文件路径），此函数为空实现。
+func SetWindowIcon(winPtr unsafe.Pointer, iconPath string) {}
+
+// SetDefaultAppIcon Windows 图标从 EXE 资源加载，此函数为空实现。
+func SetDefaultAppIcon(iconPath string) {}
+
+// DisableWebKitHardwareAccel Windows 上通过 WebView2 环境设置，无需单独调用。
+func DisableWebKitHardwareAccel(winPtr unsafe.Pointer) {}
+
 // SetDefaultWindowSize 保存配置中的窗口尺寸（width × height）。
 // 最大化/全屏恢复时永远使用此尺寸，而非用户拖拽后的尺寸。
 func SetDefaultWindowSize(width, height int) {
@@ -639,3 +648,6 @@ func ToggleMinimize(winPtr unsafe.Pointer) {
 	// SW_MINIMIZE = 6，将窗口最小化到任务栏
 	C.ShowWindow(hwnd, 6)
 }
+
+// HasDisplay 在 Windows 上始终返回 true（WebView2 无需 X11/Wayland）。
+func HasDisplay() bool { return true }

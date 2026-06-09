@@ -53,9 +53,16 @@
     vue_dir: "../my-app/vue"
     description: "我的应用"</CodeBlock>
 
-    <p class="hint">然后在 Vue 项目的 <code>.env.production</code> 中配置远程 API：</p>
-    <CodeBlock lang="bash">VITE_REMOTE_API_URL=https://api.example.com
-VITE_PROXY_PREFIXES=/api/,/storage/</CodeBlock>
+    <p class="hint">然后在 Vue 项目的 <code>.env.production</code> 中配置远程 API 和应用图标：</p>
+    <CodeBlock lang="bash"># 远程 API 地址
+VITE_REMOTE_API_URL=https://api.example.com
+# 代理前缀（逗号分隔）
+VITE_PROXY_PREFIXES=/api/,/storage/
+# 桌面图标（从 dist/ 目录查找）
+# Linux 使用 PNG 格式（建议 ≥ 64x64）
+DESKTOP_ICON_LINUX=favicon.png
+# Windows 使用 ICO 格式（建议含多尺寸 16~256）
+DESKTOP_ICON_WINDOWS=favicon.ico</CodeBlock>
 
     <h3>窗口配置 (config.yaml)</h3>
     <table class="api-table">
@@ -70,6 +77,8 @@ VITE_PROXY_PREFIXES=/api/,/storage/</CodeBlock>
         <tr><td><code>always_on_top</code></td><td>bool</td><td>false</td><td>始终置顶</td></tr>
         <tr><td><code>opacity</code></td><td>float</td><td>1.0</td><td>不透明度 (0.0~1.0)</td></tr>
         <tr><td><code>window_position</code></td><td>string</td><td>"center"</td><td>位置：""/"center"/"x,y"</td></tr>
+        <tr><td><code>webview_bg_transparent</code></td><td>bool</td><td>false</td><td>WebView 背景透明（跨平台）</td></tr>
+        <tr><td><code>input_passthrough</code></td><td>bool</td><td>false</td><td>透明区域点击穿透（Linux）</td></tr>
         <tr><td><code>acrylic</code></td><td>bool</td><td>false</td><td>毛玻璃背景 (Win)</td></tr>
         <tr><td><code>round_corners</code></td><td>bool</td><td>true</td><td>圆角窗口 (Win11)</td></tr>
         <tr><td><code>dark_title_bar</code></td><td>bool</td><td>false</td><td>暗色标题栏 (Win10+)</td></tr>

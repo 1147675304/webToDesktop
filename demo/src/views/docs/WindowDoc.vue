@@ -3,6 +3,21 @@
     <h2><el-icon><Monitor /></el-icon> 窗口控制</h2>
     <p class="desc">无边框窗口下通过 Go Bridge 调用原生平台 API 控制窗口行为。支持拖拽、缩放、最小化、最大化、全屏、关闭、重启。</p>
 
+    <h3>窗口透明背景（跨平台）</h3>
+    <p class="desc">配置 <code>webview_bg_transparent: true</code> 启用 WebView 背景透明：</p>
+    <ul class="feature-list">
+      <li><strong>Linux</strong>：通过 RGBA visual + WebKit WebView 透明背景实现，需合成器支持</li>
+      <li><strong>Windows</strong>：通过 <code>WEBVIEW2_DEFAULT_BACKGROUND_COLOR=00000000</code> 实现，配合 Acrylic 毛玻璃效果</li>
+      <li>前端需设置 <code>html { background: transparent; }</code> 配合</li>
+    </ul>
+
+    <h3>透明区域点击穿透（Linux 专用）</h3>
+    <p class="desc">配置 <code>input_passthrough: true</code> 允许鼠标穿过完全透明的区域操作下层窗口：</p>
+    <CodeBlock lang="yaml">window:
+  webview_bg_transparent: true
+  input_passthrough: true  # Linux 专用，Windows 自动忽略</CodeBlock>
+    <p class="hint">启用后，合成器会根据像素 alpha 通道自动判断穿透区域。禁用时所有点击由本窗口捕获（与 Windows 行为一致）。</p>
+
     <h3>前端示例代码</h3>
     <p class="hint">拖拽条 + 窗口控制按钮的完整实现，使用 Element Plus 图标。</p>
 
@@ -111,7 +126,11 @@ import CodeBlock from '../../components/CodeBlock.vue'
 
 <style scoped>
 .desc { color: var(--text-secondary); font-size: 14px; margin-bottom: 20px; line-height: 1.7; }
+.desc code { background: #eee; padding: 1px 6px; border-radius: 4px; font-size: 12px; }
 .hint { color: var(--text-secondary); font-size: 13px; margin-bottom: 12px; }
+.feature-list { color: var(--text-secondary); font-size: 13px; line-height: 1.8; margin: 0 0 20px 18px; }
+.feature-list li { margin-bottom: 4px; }
+.feature-list strong { color: var(--text); }
 
 .api-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 12px; }
 .api-table th, .api-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); }
