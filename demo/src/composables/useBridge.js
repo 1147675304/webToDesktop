@@ -2,6 +2,7 @@ import { ref, computed } from 'vue'
 
 // ———— 模拟存储（浏览器模式） ————
 const _mockStore = {}
+const _mockKeyValues = JSON.parse(localStorage.getItem('wtd_key_values') || '{}')
 
 // ———— 底层调用 ————
 function callBridge(method, params = {}) {
@@ -37,8 +38,25 @@ function mockBridge(method, params) {
     }
     case 'saveWindowConfig':
       localStorage.setItem('wtd_window_config', JSON.stringify(params)); return { saved: true, needRestart: true }
+    case 'setItem':
+      _mockKeyValues[params.key] = params.value
+      localStorage.setItem('wtd_key_values', JSON.stringify(_mockKeyValues))
+      return { saved: true }
+    case 'getItem':
+      if (params.key in _mockKeyValues) return { found: true, value: _mockKeyValues[params.key] }
+      return { found: false }
+    case 'removeItem':
+      delete _mockKeyValues[params.key]
+      localStorage.setItem('wtd_key_values', JSON.stringify(_mockKeyValues))
+      return { removed: true }
+    case 'clearItems':
+      Object.keys(_mockKeyValues).forEach(k => delete _mockKeyValues[k])
+      localStorage.setItem('wtd_key_values', JSON.stringify(_mockKeyValues))
+      return { cleared: true }
+    case 'getAllItems':
+      return { items: { ..._mockKeyValues } }
     case 'listMethods':
-      return { methods: ['getAppInfo', 'listMethods', 'saveCredentials', 'getCredentials', 'deleteCredentials', 'clearCredentials', 'dragWindow', 'resizeWindow', 'closeWindow', 'toggleMaximize', 'toggleFullscreen', 'toggleMinimize', 'restartApp', 'getWindowConfig', 'saveWindowConfig'] }
+      return { methods: ['getAppInfo', 'listMethods', 'saveCredentials', 'getCredentials', 'deleteCredentials', 'clearCredentials', 'dragWindow', 'resizeWindow', 'closeWindow', 'toggleMaximize', 'toggleFullscreen', 'toggleMinimize', 'restartApp', 'getWindowConfig', 'saveWindowConfig', 'setItem', 'getItem', 'removeItem', 'clearItems', 'getAllItems'] }
     default: return {}
   }
 }

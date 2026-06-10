@@ -74,6 +74,25 @@ await callBridge('closeWindow')
 
 桌面端用 `v-if="isDesktop"` 控制专属 UI。
 
+## 键值对持久化存储
+
+桌面端已透明接管浏览器原生 `localStorage` API，所有读写操作自动路由到 AES-256-GCM 加密存储：
+
+```javascript
+// ★ 代码完全不变，桌面端自动加密持久化
+localStorage.setItem('theme', 'dark')
+const theme = localStorage.getItem('theme')
+```
+
+也可使用 Vue composable 获取响应式绑定：
+
+```javascript
+import { useStorage } from '../composables/useStorage.js'
+const storage = useStorage()
+const themeRef = storage.useRef('theme', 'default-dark')
+themeRef.value = 'light'  // 自动持久化 + 响应式更新
+```
+
 Vite 配置: `base: '/'`, `build.target: 'es2015'`（兼容旧版 WebKitGTK）。
 
 ## 调试

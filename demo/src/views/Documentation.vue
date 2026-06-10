@@ -15,6 +15,9 @@
       <router-link to="/docs/window" active-class="active" class="nav-item">
         <span><el-icon><Monitor /></el-icon> 窗口控制</span>
       </router-link>
+      <router-link to="/docs/storage" active-class="active" class="nav-item">
+        <span><el-icon><FolderOpened /></el-icon> 键值对存储</span>
+      </router-link>
       <router-link to="/docs/build" active-class="active" class="nav-item">
         <span><el-icon><Box /></el-icon> 构建与部署</span>
       </router-link>
@@ -31,7 +34,7 @@
 </template>
 
 <script setup>
-import { Reading, Lock, Connection, Monitor, Box, Switch } from '@element-plus/icons-vue'
+import { Reading, Lock, Connection, Monitor, Box, Switch, FolderOpened } from '@element-plus/icons-vue'
 </script>
 
 <style scoped>

@@ -51,12 +51,15 @@ import { useRouter } from 'vue-router'
 import { Setting, Reading, HomeFilled, Minus, Crop, FullScreen, RefreshRight, Close } from '@element-plus/icons-vue'
 import { useBridge } from './composables/useBridge.js'
 import { useCredentials } from './composables/useCredentials.js'
+import { useStorage } from './composables/useStorage.js'
+import { initLocalStorageProxy } from './composables/localStorageProxy.js'
 
 const router = useRouter()
 
 // ———— 使用 composables（共享状态） ————
 const { bridge, appInfo, bridgeReady, isDesktop, isWindows, initAppInfo, onDragBarMouseDown } = useBridge()
 const { credList, credForm, loadCreds, saveCred, deleteCred, clearCreds } = useCredentials()
+const storage = useStorage()
 
 // ———— 菜单系统 ————
 const menus = [
@@ -67,7 +70,13 @@ const menus = [
 
 // ———— 初始化 ————
 onMounted(async () => {
+  // 先初始化桥接信息
   await initAppInfo()
+
+  // 接管浏览器 localStorage → 桌面端自动路由到 Go 加密存储
+  const storageResult = await initLocalStorageProxy(bridge)
+  console.log(`[App] 存储模式: ${storageResult.desktop ? '桌面加密存储' : '浏览器 localStorage'}（已加载 ${storageResult.loaded} 项）`)
+
   loadCreds()
 })
 
@@ -96,6 +105,7 @@ provide('saveCred', saveCred)
 provide('loadCreds', loadCreds)
 provide('deleteCred', deleteCred)
 provide('clearCreds', clearCreds)
+provide('storage', storage)
 </script>
 
 <style>

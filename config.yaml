@@ -12,7 +12,7 @@ app:
 security:
   # AES-256 加密密钥（任意字符串，构建时自动 SHA256 派生为 32 字节密钥）
   # ★ 开源用户必须修改此密钥！修改后旧的 credentials.dat 将无法解密
-  aes_key: "change-me-to-a-random-string"
+  aes_key: "lhpanda-webtodesktop-2026"
 
 # ============================================================
 # 窗口外观配置

@@ -21,7 +21,8 @@ type CredentialData struct {
 }
 
 type storePayload struct {
-	Credentials []CredentialData `json:"credentials,omitempty"`
+	Credentials []CredentialData  `json:"credentials,omitempty"`
+	KeyValues   map[string]string `json:"key_values,omitempty"`
 }
 
 // Store 本地加密持久化存储
@@ -135,6 +136,85 @@ func (s *Store) ClearCredentials() error {
 		return fmt.Errorf("清除凭证失败: %w", err)
 	}
 	return nil
+}
+
+// SetItem 设置键值对（加密存储）
+func (s *Store) SetItem(key, value string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	payload, err := s.readEncrypted()
+	if err != nil {
+		return err
+	}
+	if payload.KeyValues == nil {
+		payload.KeyValues = make(map[string]string)
+	}
+	payload.KeyValues[key] = value
+	return s.writeEncrypted(payload)
+}
+
+// GetItem 获取指定键的值
+func (s *Store) GetItem(key string) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	payload, err := s.readEncrypted()
+	if err != nil {
+		return "", err
+	}
+	if payload.KeyValues == nil {
+		return "", nil
+	}
+	return payload.KeyValues[key], nil
+}
+
+// RemoveItem 删除指定键
+func (s *Store) RemoveItem(key string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	payload, err := s.readEncrypted()
+	if err != nil {
+		return err
+	}
+	if payload.KeyValues != nil {
+		delete(payload.KeyValues, key)
+		return s.writeEncrypted(payload)
+	}
+	return nil
+}
+
+// ClearItems 清除所有键值对
+func (s *Store) ClearItems() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	payload, err := s.readEncrypted()
+	if err != nil {
+		return err
+	}
+	payload.KeyValues = nil
+	return s.writeEncrypted(payload)
+}
+
+// GetAllItems 获取所有键值对
+func (s *Store) GetAllItems() (map[string]string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	payload, err := s.readEncrypted()
+	if err != nil {
+		return nil, err
+	}
+	if payload.KeyValues == nil {
+		return map[string]string{}, nil
+	}
+	result := make(map[string]string, len(payload.KeyValues))
+	for k, v := range payload.KeyValues {
+		result[k] = v
+	}
+	return result, nil
 }
 
 // SaveWindowConfig 保存窗口配置

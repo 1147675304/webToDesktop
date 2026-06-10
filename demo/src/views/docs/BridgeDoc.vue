@@ -94,6 +94,12 @@ func (b *Bridge) registerBuiltins() {
         <tr><td><code>toggleMaximize</code></td><td>—</td><td><code>{ ok: true }</code></td><td><code>handleToggleMaximize</code></td></tr>
         <tr><td><code>toggleFullscreen</code></td><td>—</td><td><code>{ ok: true }</code></td><td><code>handleToggleFullscreen</code></td></tr>
         <tr><td><code>closeWindow</code></td><td>—</td><td><code>{ ok: true }</code></td><td><code>handleCloseWindow</code></td></tr>
+        <tr><td colspan="4" class="section"><el-icon><FolderOpened /></el-icon> 键值对存储</td></tr>
+        <tr><td><code>setItem</code></td><td><code>{ key, value }</code></td><td><code>{ saved: true }</code></td><td><code>handleSetItem</code></td></tr>
+        <tr><td><code>getItem</code></td><td><code>{ key }</code></td><td><code>{ found, value }</code></td><td><code>handleGetItem</code></td></tr>
+        <tr><td><code>removeItem</code></td><td><code>{ key }</code></td><td><code>{ removed: true }</code></td><td><code>handleRemoveItem</code></td></tr>
+        <tr><td><code>clearItems</code></td><td>—</td><td><code>{ cleared: true }</code></td><td><code>handleClearItems</code></td></tr>
+        <tr><td><code>getAllItems</code></td><td>—</td><td><code>{ items: {...} }</code></td><td><code>handleGetAllItems</code></td></tr>
         <tr><td colspan="4" class="section"><el-icon><Setting /></el-icon> 窗口配置</td></tr>
         <tr><td><code>getWindowConfig</code></td><td>—</td><td><code>{ title, width, ... }</code></td><td><code>handleGetWindowConfig</code></td></tr>
         <tr><td><code>saveWindowConfig</code></td><td><code>{ title, ... }</code></td><td><code>{ saved, needRestart }</code></td><td><code>handleSaveWindowConfig</code></td></tr>

@@ -19,6 +19,11 @@
         <span class="f-title">窗口控制</span>
         <span class="f-desc">无边框窗口拖拽/缩放/最大化/全屏/最小化 API</span>
       </router-link>
+      <router-link to="/docs/storage" class="f-card">
+        <span class="f-icon"><el-icon><FolderOpened /></el-icon></span>
+        <span class="f-title">键值对持久化存储</span>
+        <span class="f-desc">透明接管 localStorage，AES 加密持久化，无缝切换桌面/浏览器</span>
+      </router-link>
       <router-link to="/docs/build" class="f-card">
         <span class="f-icon"><el-icon><Box /></el-icon></span>
         <span class="f-title">构建与部署</span>
@@ -29,7 +34,7 @@
 </template>
 
 <script setup>
-import { Reading, Lock, Connection, Box, Monitor } from '@element-plus/icons-vue'
+import { Reading, Lock, Connection, Box, Monitor, FolderOpened } from '@element-plus/icons-vue'
 </script>
 
 <style scoped>
