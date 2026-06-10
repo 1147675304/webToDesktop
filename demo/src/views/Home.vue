@@ -125,6 +125,56 @@
       </section>
 
       <section class="card">
+        <h2><el-icon><Bell /></el-icon> Go→JS 流式数据推送</h2>
+        <p class="card-desc">
+          Go goroutine 每秒逐行读取 <code>README.md</code>，
+          通过 <code>channel → wv.Eval() → CustomEvent</code> 推送到前端实时展示。
+        </p>
+        <div class="btn-row">
+          <button class="btn primary" @click="startReadmeStream" :disabled="readmeListening">
+            <el-icon><VideoPlay /></el-icon> 开始推送
+          </button>
+          <button class="btn danger" @click="stopReadmeStream" :disabled="!readmeListening">
+            <el-icon><VideoPause /></el-icon> 停止
+          </button>
+          <span v-if="readmeTotal" class="readme-progress">
+            进度: {{ readmeLines.length }} / {{ readmeTotal }} 行
+          </span>
+        </div>
+        <div v-if="readmeError" class="error-hint">
+          <el-icon><WarningFilled /></el-icon> {{ readmeError }}
+        </div>
+        <div v-if="readmeDone" class="done-hint">
+          <el-icon><CircleCheckFilled /></el-icon> README.md 推送完毕
+        </div>
+        <div v-if="readmeLines.length" class="readme-viewer">
+          <div class="readme-line" v-for="(item, i) in readmeLines" :key="i">
+            <span class="line-no">{{ item.line }}</span>
+            <span class="line-text">{{ item.text }}</span>
+          </div>
+        </div>
+        <p v-if="!readmeListening && !readmeLines.length" class="empty-hint">
+          点击"开始推送"查看 README.md 逐行展示效果
+        </p>
+        <details class="tip-box" style="margin-top:12px">
+          <summary><el-icon><InfoFilled /></el-icon> <strong>架构说明</strong></summary>
+          <pre style="white-space:pre-wrap;font-size:13px;margin-top:8px">
+Go 侧（streamdemo.go）:
+  scanner := bufio.NewScanner(file)
+  for scanner.Scan() {
+      ch ← {line, text, total}
+      time.Sleep(1s)  // 每秒一行
+  }
+
+JS 侧:
+  window.addEventListener('stream-data', e => {
+      // e.detail = {topic, data: {line, text, ...}}
+  })
+          </pre>
+        </details>
+      </section>
+
+      <section class="card">
         <h2><el-icon><Box /></el-icon> 构建命令</h2>
         <div class="commands">
           <div class="cmd" v-for="c in commands" :key="c.cmd">
@@ -138,8 +188,8 @@
 </template>
 
 <script setup>
-import { inject, ref, reactive, onMounted } from 'vue'
-import { Monitor, CircleCheckFilled, WarningFilled, Lock, Connection, Delete, Key, User, Sort, Cloudy, Box, Tickets, Crop, FullScreen, Close, Pointer, InfoFilled, UploadFilled } from '@element-plus/icons-vue'
+import { inject, ref, reactive, onMounted, onUnmounted } from 'vue'
+import { Monitor, CircleCheckFilled, WarningFilled, Lock, Connection, Delete, Key, User, Sort, Cloudy, Box, Tickets, Crop, FullScreen, Close, Pointer, InfoFilled, UploadFilled, Bell, VideoPlay, VideoPause } from '@element-plus/icons-vue'
 
 const bridge = inject('bridge', {})
 const appInfo = inject('appInfo', ref({ platform: 'browser', arch: 'x64' }))
@@ -166,7 +216,101 @@ const commands = [
   { cmd: 'make clean', desc: '清理构建产物' }
 ]
 
+// ———— README 逐行流式推送演示 ————
+const readmeLines = ref([])
+const readmeListening = ref(false)
+const readmeTotal = ref(0)
+const readmeError = ref('')
+const readmeDone = ref(false)
+
+function onStreamData(e) {
+  const { topic, data: payload } = e.detail || {}
+  if (topic !== 'readme-stream') return
+
+  if (payload.type === 'line') {
+    readmeLines.value.push(payload)
+    readmeTotal.value = payload.total
+  } else if (payload.type === 'done') {
+    readmeDone.value = true
+    readmeListening.value = false
+  } else if (payload.type === 'error') {
+    readmeError.value = payload.msg
+    readmeListening.value = false
+  }
+}
+
+function onStreamEnd(e) {
+  const { topic } = e.detail || {}
+  if (topic === 'readme-stream') {
+    readmeListening.value = false
+  }
+}
+
+async function startReadmeStream() {
+  readmeLines.value = []
+  readmeTotal.value = 0
+  readmeError.value = ''
+  readmeDone.value = false
+
+  if (window.__lhpanda__) {
+    try {
+      const result = await window.__lhpanda__('startReadmeStream', {})
+      if (result.success) {
+        readmeListening.value = true
+        readmeTotal.value = result.data.totalLines || 0
+      }
+    } catch (err) {
+      readmeError.value = err?.message || String(err)
+    }
+  } else {
+    // 浏览器模拟模式
+    readmeListening.value = true
+    mockReadmeStream()
+  }
+}
+
+async function stopReadmeStream() {
+  if (window.__lhpanda__) {
+    try { await window.__lhpanda__('stopReadmeStream', {}) } catch {}
+  }
+  readmeListening.value = false
+}
+
+// 浏览器模拟：用预置文本模拟逐行推送
+function mockReadmeStream() {
+  const lines = [
+    '# WebToDesktop',
+    '',
+    '将任意前端项目打包为桌面应用。',
+    'Go + 系统原生 WebView，零运行时依赖。',
+    '',
+    '## 平台支持',
+    '| 平台 | 后端 |',
+    '|------|------|',
+    '| Linux | GTK + WebKit2GTK |',
+    '| Windows | Edge WebView2 |',
+    '',
+    '> （浏览器模拟模式，共 12 行）',
+  ]
+  readmeTotal.value = lines.length
+  let i = 0
+  const timer = setInterval(() => {
+    if (i >= lines.length || !readmeListening.value) {
+      clearInterval(timer)
+      if (i >= lines.length) {
+        readmeDone.value = true
+        readmeListening.value = false
+      }
+      return
+    }
+    readmeLines.value.push({ line: i + 1, total: lines.length, text: lines[i] })
+    i++
+  }, 800)
+}
+
 onMounted(async () => {
+  window.addEventListener('stream-data', onStreamData)
+  window.addEventListener('stream-end', onStreamEnd)
   try {
     const cfg = await bridge.getWindowConfig()
     if (cfg) {
@@ -174,6 +318,11 @@ onMounted(async () => {
       winCfg.input_passthrough = cfg.input_passthrough
     }
   } catch (e) { /* browser mode */ }
+})
+
+onUnmounted(() => {
+  window.removeEventListener('stream-data', onStreamData)
+  window.removeEventListener('stream-end', onStreamEnd)
 })
 
 async function saveCred() { saveCredFn() }

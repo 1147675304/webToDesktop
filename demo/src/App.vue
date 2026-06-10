@@ -304,6 +304,32 @@ body {
 }
 .cmd-desc { font-size: 13px; color: var(--text-secondary); }
 
+/* ———— README 流式推送 ———— */
+.readme-progress {
+  font-size: 13px; color: var(--text-secondary);
+  display: inline-flex; align-items: center;
+}
+.readme-viewer {
+  margin-top: 12px; max-height: 300px; overflow-y: auto;
+  border: 1px solid var(--border); border-radius: 6px;
+  background: #fafafa; font-family: monospace; font-size: 13px;
+}
+.readme-line {
+  display: flex; gap: 12px; padding: 3px 12px;
+  border-bottom: 1px solid #f0f0f0;
+  animation: fadeIn 0.3s ease;
+}
+.readme-line:last-child { border-bottom: none; }
+.line-no {
+  color: var(--text-secondary); min-width: 32px;
+  text-align: right; user-select: none; flex-shrink: 0;
+}
+.line-text { color: var(--text); white-space: pre-wrap; word-break: break-all; }
+.error-hint { color: var(--red); font-size: 13px; margin-top: 8px; }
+.done-hint { color: var(--green); font-size: 13px; margin-top: 8px; }
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
 @media (max-width: 700px) {
   .content { padding: 16px; }
   .hero { padding: 24px 12px; }

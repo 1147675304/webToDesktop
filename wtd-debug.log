@@ -1,0 +1,22 @@
+[WTD] === runApp start ===
+[WTD] addr=http://127.0.0.1:40017, width=1366, height=768, borderless=false
+[WTD] creating WebView...
+[WTD] STEP-1: webview.New
+[WTD] STEP-1: ok, WebView created
+[WTD] STEP-2: SetSize(1,1)
+[WTD] STEP-2: ok
+[WTD] STEP-3: SetTitle
+[WTD] STEP-3: ok, title=demo
+[WTD] STEP-4: ApplyPreShow (borderless=false, opactiy=0.9, transparent=false, keeptop=false)
+[WTD] STEP-4: ok
+[WTD] STEP-5: SetSize 1366x768
+[WTD] STEP-5: ok
+[WTD] setting up bridge...
+[WTD] bridge ready: window.__lhpanda__
+[WTD] STEP-6: Init (inject CSS)
+[WTD] STEP-6: ok
+[WTD] STEP-7: Navigate -> http://127.0.0.1:40017
+[WTD] STEP-7: ok
+[WTD] STEP-8: Dispatch (Apply post-show config)
+[WTD] STEP-8: dispatched
+[WTD] STEP-9: w.Run (main loop)

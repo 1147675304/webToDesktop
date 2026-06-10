@@ -56,7 +56,15 @@ function mockBridge(method, params) {
     case 'getAllItems':
       return { items: { ..._mockKeyValues } }
     case 'listMethods':
-      return { methods: ['getAppInfo', 'listMethods', 'saveCredentials', 'getCredentials', 'deleteCredentials', 'clearCredentials', 'dragWindow', 'resizeWindow', 'closeWindow', 'toggleMaximize', 'toggleFullscreen', 'toggleMinimize', 'restartApp', 'getWindowConfig', 'saveWindowConfig', 'setItem', 'getItem', 'removeItem', 'clearItems', 'getAllItems'] }
+      return { methods: ['getAppInfo', 'listMethods', 'saveCredentials', 'getCredentials', 'deleteCredentials', 'clearCredentials', 'dragWindow', 'resizeWindow', 'closeWindow', 'toggleMaximize', 'toggleFullscreen', 'toggleMinimize', 'restartApp', 'getWindowConfig', 'saveWindowConfig', 'setItem', 'getItem', 'removeItem', 'clearItems', 'getAllItems', 'listenStream', 'stopStream', 'sendToStream', 'listStreams'] }
+    case 'listenStream':
+      return { listening: true, topic: params.topic || 'demo' }
+    case 'stopStream':
+      return { stopped: true, topic: params.topic || 'demo' }
+    case 'sendToStream':
+      return { sent: true, topic: params.topic || 'demo' }
+    case 'listStreams':
+      return { streams: [] }
     default: return {}
   }
 }
