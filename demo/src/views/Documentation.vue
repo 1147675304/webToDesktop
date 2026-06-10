@@ -24,6 +24,9 @@
       <router-link to="/docs/bridge" active-class="active" class="nav-item">
         <span><el-icon><Switch /></el-icon> Bridge API</span>
       </router-link>
+      <router-link to="/docs/stream" active-class="active" class="nav-item">
+        <span><el-icon><Bell /></el-icon> 流式数据推送</span>
+      </router-link>
     </nav>
 
     <!-- 内容区 -->
@@ -34,7 +37,7 @@
 </template>
 
 <script setup>
-import { Reading, Lock, Connection, Monitor, Box, Switch, FolderOpened } from '@element-plus/icons-vue'
+import { Reading, Lock, Connection, Monitor, Box, Switch, FolderOpened, Bell } from '@element-plus/icons-vue'
 </script>
 
 <style scoped>

@@ -21,6 +21,7 @@ const router = createRouter({
         { path: 'window', name: 'docs-window', component: () => import('../views/docs/WindowDoc.vue') },
         { path: 'build', name: 'docs-build', component: () => import('../views/docs/BuildDoc.vue') },
         { path: 'bridge', name: 'docs-bridge', component: () => import('../views/docs/BridgeDoc.vue') },
+        { path: 'stream', name: 'docs-stream', component: () => import('../views/docs/StreamDoc.vue') },
       ],
     },
   ],

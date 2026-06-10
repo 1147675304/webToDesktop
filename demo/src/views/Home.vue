@@ -134,8 +134,24 @@
           <button class="btn primary" @click="startReadmeStream" :disabled="readmeListening">
             <el-icon><VideoPlay /></el-icon> 开始推送
           </button>
+          <button class="btn" @click="pauseReadmeStream" :disabled="!readmeListening || readmePaused">
+            <el-icon><VideoPause /></el-icon> 暂停
+          </button>
+          <button class="btn" @click="resumeReadmeStream" :disabled="!readmePaused">
+            <el-icon><VideoPlay /></el-icon> 恢复
+          </button>
           <button class="btn danger" @click="stopReadmeStream" :disabled="!readmeListening">
-            <el-icon><VideoPause /></el-icon> 停止
+            <el-icon><Close /></el-icon> 停止
+          </button>
+        </div>
+        <div class="btn-row" style="margin-top:0">
+          <label style="font-size:13px;color:var(--text-secondary);display:flex;align-items:center;gap:6px">
+            从第 <input v-model="readmeStartLine" type="number" min="1"
+              style="width:60px;padding:4px 8px;border-radius:4px;border:1px solid var(--border);text-align:center" />
+            行开始
+          </label>
+          <button class="btn" @click="seekReadmeStream" :disabled="!readmeListening">
+            <el-icon><Sort /></el-icon> 跳转
           </button>
           <span v-if="readmeTotal" class="readme-progress">
             进度: {{ readmeLines.length }} / {{ readmeTotal }} 行
@@ -219,9 +235,11 @@ const commands = [
 // ———— README 逐行流式推送演示 ————
 const readmeLines = ref([])
 const readmeListening = ref(false)
+const readmePaused = ref(false)
 const readmeTotal = ref(0)
 const readmeError = ref('')
 const readmeDone = ref(false)
+const readmeStartLine = ref(1)
 
 function onStreamData(e) {
   const { topic, data: payload } = e.detail || {}
@@ -230,12 +248,19 @@ function onStreamData(e) {
   if (payload.type === 'line') {
     readmeLines.value.push(payload)
     readmeTotal.value = payload.total
+    readmePaused.value = false
   } else if (payload.type === 'done') {
     readmeDone.value = true
     readmeListening.value = false
+    readmePaused.value = false
   } else if (payload.type === 'error') {
     readmeError.value = payload.msg
     readmeListening.value = false
+  } else if (payload.type === 'seek') {
+    // 跳转成功，清空已有行并从跳转行开始
+    readmeLines.value = []
+    readmeDone.value = false
+    readmePaused.value = false
   }
 }
 
@@ -251,10 +276,14 @@ async function startReadmeStream() {
   readmeTotal.value = 0
   readmeError.value = ''
   readmeDone.value = false
+  readmePaused.value = false
 
   if (window.__lhpanda__) {
     try {
-      const result = await window.__lhpanda__('startReadmeStream', {})
+      const result = await window.__lhpanda__('startReadmeStream', {
+        startLine: readmeStartLine.value,
+        speed: 800,
+      })
       if (result.success) {
         readmeListening.value = true
         readmeTotal.value = result.data.totalLines || 0
@@ -263,9 +292,8 @@ async function startReadmeStream() {
       readmeError.value = err?.message || String(err)
     }
   } else {
-    // 浏览器模拟模式
     readmeListening.value = true
-    mockReadmeStream()
+    mockReadmeStream(readmeStartLine.value)
   }
 }
 
@@ -274,11 +302,55 @@ async function stopReadmeStream() {
     try { await window.__lhpanda__('stopReadmeStream', {}) } catch {}
   }
   readmeListening.value = false
+  readmePaused.value = false
+}
+
+async function pauseReadmeStream() {
+  if (window.__lhpanda__) {
+    try {
+      await window.__lhpanda__('pauseReadmeStream', {})
+      readmePaused.value = true
+    } catch {}
+  } else {
+    readmePaused.value = true
+  }
+}
+
+async function resumeReadmeStream() {
+  if (window.__lhpanda__) {
+    try {
+      await window.__lhpanda__('resumeReadmeStream', {})
+      readmePaused.value = false
+    } catch {}
+  } else {
+    readmePaused.value = false
+    // 浏览器模拟：重新 mock 剩下的行
+    mockReadmeStream(readmeLines.value.length + 1)
+  }
+}
+
+async function seekReadmeStream() {
+  if (window.__lhpanda__) {
+    try {
+      await window.__lhpanda__('seekReadmeStream', { line: readmeStartLine.value })
+      readmeLines.value = []
+      readmeDone.value = false
+      readmePaused.value = false
+    } catch (err) {
+      readmeError.value = err?.message || String(err)
+    }
+  } else {
+    // 浏览器模拟：清空并重新开始
+    readmeLines.value = []
+    readmeDone.value = false
+    readmeListening.value = true
+    mockReadmeStream(readmeStartLine.value)
+  }
 }
 
 // 浏览器模拟：用预置文本模拟逐行推送
-function mockReadmeStream() {
-  const lines = [
+function mockReadmeStream(startLine) {
+  const allLines = [
     '# WebToDesktop',
     '',
     '将任意前端项目打包为桌面应用。',
@@ -292,18 +364,18 @@ function mockReadmeStream() {
     '',
     '> （浏览器模拟模式，共 12 行）',
   ]
-  readmeTotal.value = lines.length
-  let i = 0
+  readmeTotal.value = allLines.length
+  let i = Math.max(0, (startLine || 1) - 1)
   const timer = setInterval(() => {
-    if (i >= lines.length || !readmeListening.value) {
+    if (!readmePaused.value && i >= allLines.length) {
       clearInterval(timer)
-      if (i >= lines.length) {
-        readmeDone.value = true
-        readmeListening.value = false
-      }
+      readmeDone.value = true
+      readmeListening.value = false
       return
     }
-    readmeLines.value.push({ line: i + 1, total: lines.length, text: lines[i] })
+    if (readmePaused.value) return
+    if (i >= allLines.length) { clearInterval(timer); return }
+    readmeLines.value.push({ line: i + 1, total: allLines.length, text: allLines[i] })
     i++
   }, 800)
 }
