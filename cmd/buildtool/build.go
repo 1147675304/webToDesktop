@@ -231,12 +231,12 @@ func goBuild(platform, baseLdflags, buildTags string) error {
 }
 
 type buildConfig struct {
-	desc     string
-	output   string
-	ldflags  string
+	desc      string
+	output    string
+	ldflags   string
 	buildTags string
-	env      []string
-	preSetup func() error
+	env       []string
+	preSetup  func() error
 }
 
 func buildCfg(platform, baseLdflags, buildTags string) buildConfig {
@@ -248,49 +248,49 @@ func buildCfg(platform, baseLdflags, buildTags string) buildConfig {
 			output:    filepath.Join(outputDir, appName+"-linux-"+arch),
 			ldflags:   baseLdflags,
 			buildTags: buildTags,
-			env:      addPkgConfigPath("CGO_ENABLED=1", "GOARCH="+arch),
-			preSetup: func() error { return setupLinuxCrossCC(arch) },
+			env:       addPkgConfigPath("CGO_ENABLED=1", "GOARCH="+arch),
+			preSetup:  func() error { return setupLinuxCrossCC(arch) },
 		}
 	case "linux-amd64":
 		return buildConfig{
-			desc:     "  目标: Linux amd64 (WebKitGTK)",
-			output:   filepath.Join(outputDir, appName+"-linux-amd64"),
+			desc:      "  目标: Linux amd64 (WebKitGTK)",
+			output:    filepath.Join(outputDir, appName+"-linux-amd64"),
 			ldflags:   baseLdflags,
 			buildTags: buildTags,
-			env:      addPkgConfigPath("CGO_ENABLED=1", "GOARCH=amd64"),
-			preSetup: func() error { return setupLinuxCrossCC("amd64") },
+			env:       addPkgConfigPath("CGO_ENABLED=1", "GOARCH=amd64"),
+			preSetup:  func() error { return setupLinuxCrossCC("amd64") },
 		}
 	case "linux-amd64-console":
 		return buildConfig{
-			desc:     "  目标: Linux amd64 + 控制台 (调试用)",
-			output:   filepath.Join(outputDir, appName+"-linux-amd64-console"),
+			desc:      "  目标: Linux amd64 + 控制台 (调试用)",
+			output:    filepath.Join(outputDir, appName+"-linux-amd64-console"),
 			ldflags:   baseLdflags + " -X 'github.com/lhpanda/webtodesktop/pkg.BuildDebug=true'",
 			buildTags: buildTags,
-			env:      addPkgConfigPath("CGO_ENABLED=1", "GOARCH=amd64"),
-			preSetup: func() error { return setupLinuxCrossCC("amd64") },
+			env:       addPkgConfigPath("CGO_ENABLED=1", "GOARCH=amd64"),
+			preSetup:  func() error { return setupLinuxCrossCC("amd64") },
 		}
 	case "linux-arm64":
 		return buildConfig{
-			desc:     "  目标: Linux arm64 (WebKitGTK)",
-			output:   filepath.Join(outputDir, appName+"-linux-arm64"),
+			desc:      "  目标: Linux arm64 (WebKitGTK)",
+			output:    filepath.Join(outputDir, appName+"-linux-arm64"),
 			ldflags:   baseLdflags,
 			buildTags: buildTags,
-			env:      addPkgConfigPath("CGO_ENABLED=1", "GOARCH=arm64"),
-			preSetup: func() error { return setupLinuxCrossCC("arm64") },
+			env:       addPkgConfigPath("CGO_ENABLED=1", "GOARCH=arm64"),
+			preSetup:  func() error { return setupLinuxCrossCC("arm64") },
 		}
 	case "linux-loong64":
 		return buildConfig{
-			desc:     "  目标: Linux loong64 / 龙芯 (WebKitGTK)",
-			output:   filepath.Join(outputDir, appName+"-linux-loong64"),
+			desc:      "  目标: Linux loong64 / 龙芯 (WebKitGTK)",
+			output:    filepath.Join(outputDir, appName+"-linux-loong64"),
 			ldflags:   baseLdflags,
 			buildTags: buildTags,
-			env:      addPkgConfigPath("CGO_ENABLED=1", "GOARCH=loong64"),
-			preSetup: func() error { return setupLinuxCrossCC("loong64") },
+			env:       addPkgConfigPath("CGO_ENABLED=1", "GOARCH=loong64"),
+			preSetup:  func() error { return setupLinuxCrossCC("loong64") },
 		}
 	case "windows":
 		return buildConfig{
-			desc:    "  目标: Windows (Edge WebView2)\n  要求: sudo apt install gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64",
-			output:  filepath.Join(outputDir, appName+".exe"),
+			desc:      "  目标: Windows (Edge WebView2)\n  要求: sudo apt install gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64",
+			output:    filepath.Join(outputDir, appName+".exe"),
 			ldflags:   "-H windowsgui " + baseLdflags,
 			buildTags: buildTags,
 			env: []string{
@@ -303,8 +303,8 @@ func buildCfg(platform, baseLdflags, buildTags string) buildConfig {
 		}
 	case "windows-console":
 		return buildConfig{
-			desc:    "  目标: Windows + 控制台 (调试用)",
-			output:  filepath.Join(outputDir, appName+"-console.exe"),
+			desc:      "  目标: Windows + 控制台 (调试用)",
+			output:    filepath.Join(outputDir, appName+"-console.exe"),
 			ldflags:   baseLdflags + " -X 'github.com/lhpanda/webtodesktop/pkg.BuildDebug=true'",
 			buildTags: buildTags,
 			env: []string{
