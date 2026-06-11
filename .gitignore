@@ -11,8 +11,8 @@ desktop.zip
 *.zip
 
 # 示例 Vue 项目（仅保留源码）
-*/node_modules/
-*/dist/
+*/*/node_modules/
+*/*/dist/
 
 # Windows 资源文件（由构建脚本自动生成）
 rsrc.syso

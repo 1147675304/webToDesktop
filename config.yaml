@@ -72,11 +72,11 @@ window:
 # 构建时 make 会读取这些配置注入到二进制中
 # ============================================================
 projects:
-  - name: "demo"
-    vue_dir: "demo"
-    description: "WebToDesktop 功能演示"
-  - name: "debugtool"
-    vue_dir: "debugtool"
+  - name: "doc"
+    vue_dir: "demo/doc"
+    description: "WebToDesktop 文档"
+  - name: "serial"
+    vue_dir: "demo/serial"
     description: "串口调试工具"
   - name: "myapp"
     vue_dir: "myapp"
