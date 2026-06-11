@@ -101,7 +101,7 @@ func main() {
 		cmdTidy()
 	case "help", "--help", "-h":
 		cmdHelp()
-	case "current", "linux", "linux-amd64", "linux-arm64", "linux-loong64", "windows", "windows-console":
+	case "current", "current-console", "linux", "linux-amd64", "linux-amd64-console", "linux-arm64", "linux-loong64", "windows", "windows-console":
 		if project == "" {
 			fatalf("请指定项目名")
 		}

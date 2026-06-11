@@ -65,8 +65,12 @@ input, textarea, [contenteditable] { -webkit-user-select: text; user-select: tex
 var debugMode bool
 var DisableContextmenu bool // 由 main 包根据构建参数设置
 
+// BuildDebug 由构建工具通过 ldflags 注入（console 构建目标为 "true"）。
+// 作为 WTD_DEBUG 环境变量的编译时回退。
+var BuildDebug string
+
 func init() {
-	debugMode = os.Getenv("WTD_DEBUG") == "1"
+	debugMode = os.Getenv("WTD_DEBUG") == "1" || BuildDebug == "true"
 }
 
 func dbg(format string, args ...interface{}) {

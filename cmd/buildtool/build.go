@@ -264,7 +264,7 @@ func buildCfg(platform, baseLdflags, buildTags string) buildConfig {
 		return buildConfig{
 			desc:     "  目标: Linux amd64 + 控制台 (调试用)",
 			output:   filepath.Join(outputDir, appName+"-linux-amd64-console"),
-			ldflags:   baseLdflags,
+			ldflags:   baseLdflags + " -X 'github.com/lhpanda/webtodesktop/pkg.BuildDebug=true'",
 			buildTags: buildTags,
 			env:      addPkgConfigPath("CGO_ENABLED=1", "GOARCH=amd64"),
 			preSetup: func() error { return setupLinuxCrossCC("amd64") },
@@ -305,7 +305,7 @@ func buildCfg(platform, baseLdflags, buildTags string) buildConfig {
 		return buildConfig{
 			desc:    "  目标: Windows + 控制台 (调试用)",
 			output:  filepath.Join(outputDir, appName+"-console.exe"),
-			ldflags:   baseLdflags,
+			ldflags:   baseLdflags + " -X 'github.com/lhpanda/webtodesktop/pkg.BuildDebug=true'",
 			buildTags: buildTags,
 			env: []string{
 				"CGO_ENABLED=1",
@@ -316,13 +316,18 @@ func buildCfg(platform, baseLdflags, buildTags string) buildConfig {
 			},
 		}
 	default: // current / current-console
-		return buildConfig{
-			desc:    "  目标: 当前平台",
-			output:  filepath.Join(outputDir, appName),
+		cfg := buildConfig{
+			desc:      "  目标: 当前平台",
+			output:    filepath.Join(outputDir, appName),
 			ldflags:   baseLdflags,
 			buildTags: buildTags,
-			env:     addPkgConfigPath("CGO_ENABLED=1"),
+			env:       addPkgConfigPath("CGO_ENABLED=1"),
 		}
+		if platform == "current-console" {
+			cfg.desc = "  目标: 当前平台 + 控制台 (调试用)"
+			cfg.ldflags += " -X 'github.com/lhpanda/webtodesktop/pkg.BuildDebug=true'"
+		}
+		return cfg
 	}
 }
 
