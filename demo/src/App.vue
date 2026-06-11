@@ -328,6 +328,26 @@ body {
 .error-hint { color: var(--red); font-size: 13px; margin-top: 8px; }
 .done-hint { color: var(--green); font-size: 13px; margin-top: 8px; }
 
+/* ———— 串口终端 ———— */
+.serial-config { margin-top: 8px; }
+.serial-params { display: flex; gap: 8px; flex-wrap: wrap; }
+.serial-terminal {
+  margin-top: 8px; max-height: 260px; overflow-y: auto;
+  border: 1px solid var(--border); border-radius: 6px;
+  background: #1a1a2e; font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 12px; color: #00ff88; padding: 4px 0;
+}
+.serial-line {
+  display: flex; gap: 10px; padding: 2px 12px;
+  border-bottom: 1px solid #ffffff08;
+}
+.serial-line:last-child { border-bottom: none; }
+.serial-time { color: #666; flex-shrink: 0; min-width: 70px; }
+.serial-hex { color: #ff9944; font-size: 11px; flex-shrink: 0; }
+.serial-text { white-space: pre-wrap; word-break: break-all; }
+.serial-sent { background: #00220044; }
+.serial-sent-text { color: #4488ff; }
+
 @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 
 @media (max-width: 700px) {

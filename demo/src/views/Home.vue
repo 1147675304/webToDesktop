@@ -191,6 +191,116 @@ JS 侧:
       </section>
 
       <section class="card">
+        <h2><el-icon><Connection /></el-icon> 串口双向数据流</h2>
+        <p class="card-desc">
+          扫描可用串口 → 配置参数打开 → 实时接收数据 → 双向发送。
+          Go 端通过 <code>go.bug.st/serial</code> 库读写串口，数据经 stream 通道推送到前端。
+        </p>
+
+        <!-- 扫描串口 -->
+        <div class="btn-row">
+          <button class="btn primary" @click="scanSerialPorts">
+            <el-icon><Search /></el-icon> 扫描串口
+          </button>
+          <span v-if="serialPorts.length" class="readme-progress">
+            找到 {{ serialPorts.length }} 个串口
+          </span>
+        </div>
+
+        <!-- 串口列表 + 参数配置 -->
+        <div v-if="serialPorts.length && !serialOpened" class="serial-config">
+          <div class="form-group">
+            <label>选择串口</label>
+            <select v-model="serialSelectedPort" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border)">
+              <option v-for="p in serialPorts" :key="p.name" :value="p.name">{{ p.name }}</option>
+            </select>
+          </div>
+          <div class="serial-params">
+            <div class="form-group" style="flex:1">
+              <label>波特率</label>
+              <select v-model="serialConfig.baudRate" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border)">
+                <option :value="9600">9600</option>
+                <option :value="19200">19200</option>
+                <option :value="38400">38400</option>
+                <option :value="57600">57600</option>
+                <option :value="115200">115200</option>
+                <option :value="230400">230400</option>
+                <option :value="460800">460800</option>
+                <option :value="921600">921600</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex:1">
+              <label>数据位</label>
+              <select v-model="serialConfig.dataBits" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border)">
+                <option :value="5">5</option>
+                <option :value="6">6</option>
+                <option :value="7">7</option>
+                <option :value="8">8</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex:1">
+              <label>校验</label>
+              <select v-model="serialConfig.parity" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border)">
+                <option value="none">无</option>
+                <option value="odd">奇校验</option>
+                <option value="even">偶校验</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex:1">
+              <label>停止位</label>
+              <select v-model="serialConfig.stopBits" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border)">
+                <option :value="1">1</option>
+                <option :value="2">2</option>
+              </select>
+            </div>
+          </div>
+          <button class="btn primary" @click="openSerialPort" style="margin-top:8px">
+            <el-icon><VideoPlay /></el-icon> 打开串口
+          </button>
+        </div>
+
+        <!-- 已打开串口：数据面板 -->
+        <div v-if="serialOpened">
+          <div class="btn-row">
+            <button class="btn danger" @click="closeSerialPort">
+              <el-icon><Close /></el-icon> 关闭串口
+            </button>
+            <span class="readme-progress" v-if="serialPortInfo">
+              {{ serialPortInfo.port }} @ {{ serialPortInfo.baudRate }}-{{ serialPortInfo.dataBits }}{{ serialPortInfo.parity === 'none' ? 'N' : serialPortInfo.parity[0].toUpperCase() }}{{ serialPortInfo.stopBits }}
+            </span>
+          </div>
+
+          <!-- 发送区域 -->
+          <div class="input-row" style="margin:8px 0">
+            <input v-model="serialSendText" placeholder="输入要发送的数据..." style="flex:1"
+              @keyup.enter="sendSerialData" />
+            <button class="btn primary" @click="sendSerialData">
+              <el-icon><Promotion /></el-icon> 发送
+            </button>
+          </div>
+
+          <div v-if="serialError" class="error-hint">
+            <el-icon><WarningFilled /></el-icon> {{ serialError }}
+          </div>
+
+          <!-- 数据终端 -->
+          <div class="serial-terminal" v-if="serialData.length">
+            <div class="serial-line" v-for="(item, i) in serialData" :key="i"
+              :class="{ 'serial-sent': item.sent }">
+              <span class="serial-time">{{ new Date(item.timestamp).toLocaleTimeString() }}</span>
+              <span class="serial-hex" v-if="item.hex">{{ item.hex }}</span>
+              <span class="serial-text" :class="{ 'serial-sent-text': item.sent }">{{ item.text }}</span>
+            </div>
+          </div>
+          <p v-else class="empty-hint">等待接收数据...</p>
+        </div>
+
+        <p v-if="!serialOpened && !serialPorts.length" class="empty-hint">
+          点击"扫描串口"发现可用设备
+        </p>
+      </section>
+
+      <section class="card">
         <h2><el-icon><Box /></el-icon> 构建命令</h2>
         <div class="commands">
           <div class="cmd" v-for="c in commands" :key="c.cmd">
@@ -205,7 +315,8 @@ JS 侧:
 
 <script setup>
 import { inject, ref, reactive, onMounted, onUnmounted } from 'vue'
-import { Monitor, CircleCheckFilled, WarningFilled, Lock, Connection, Delete, Key, User, Sort, Cloudy, Box, Tickets, Crop, FullScreen, Close, Pointer, InfoFilled, UploadFilled, Bell, VideoPlay, VideoPause } from '@element-plus/icons-vue'
+import { useSerial } from '../composables/useSerial'
+import { Monitor, CircleCheckFilled, WarningFilled, Lock, Connection, Delete, Key, User, Sort, Cloudy, Box, Tickets, Crop, FullScreen, Close, Pointer, InfoFilled, UploadFilled, Bell, VideoPlay, VideoPause, Search, Promotion } from '@element-plus/icons-vue'
 
 const bridge = inject('bridge', {})
 const appInfo = inject('appInfo', ref({ platform: 'browser', arch: 'x64' }))
@@ -378,6 +489,42 @@ function mockReadmeStream(startLine) {
     readmeLines.value.push({ line: i + 1, total: allLines.length, text: allLines[i] })
     i++
   }, 800)
+}
+
+// ———— 串口双向数据流 ————
+const {
+  ports: serialPorts,
+  opened: serialOpened,
+  portInfo: serialPortInfo,
+  data: serialData,
+  error: serialError,
+  listPorts: scanSerialPorts,
+  open: openSerialPortFn,
+  close: closeSerialPortFn,
+  send: sendSerialDataFn,
+} = useSerial()
+
+const serialSelectedPort = ref('')
+const serialSendText = ref('')
+const serialConfig = reactive({
+  baudRate: 115200,
+  dataBits: 8,
+  parity: 'none',
+  stopBits: 1,
+})
+
+async function openSerialPort() {
+  await openSerialPortFn(serialSelectedPort.value, { ...serialConfig })
+}
+
+async function closeSerialPort() {
+  await closeSerialPortFn()
+}
+
+async function sendSerialData() {
+  if (!serialSendText.value) return
+  await sendSerialDataFn(serialSendText.value)
+  serialSendText.value = ''
 }
 
 onMounted(async () => {

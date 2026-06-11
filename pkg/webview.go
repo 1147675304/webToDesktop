@@ -63,6 +63,7 @@ input, textarea, [contenteditable] { -webkit-user-select: text; user-select: tex
 `
 
 var debugMode bool
+var DisableContextmenu bool // 由 main 包根据构建参数设置
 
 func init() {
 	debugMode = os.Getenv("WTD_DEBUG") == "1"
@@ -106,13 +107,13 @@ func writeLog(msg string) {
 
 // buildInjectJS 构建注入到 WebView 的初始化 JS。
 // debug 模式下包含 console.log 调试输出。
-func buildInjectJS(css string) string {
+func buildInjectJS(css string, disableCtxMenu bool) string {
 	js := `(function injectCSS(){
 		if (!document.head) { setTimeout(injectCSS, 10); return; }
 		var s=document.createElement('style');
 		s.textContent=%q;
 		document.head.appendChild(s);`
-	if !debugMode {
+	if disableCtxMenu && !debugMode {
 		js += `
 		document.addEventListener('contextmenu', function(e){ e.preventDefault(); });`
 	}
@@ -141,7 +142,7 @@ func buildInjectJS(css string) string {
 
 // RunApp 使用系统原生 WebView 创建独立窗口。
 // br 是桥接绑定器（bridge.Bridge），关联 WebView 窗口后绑定到 JS。
-func RunApp(addr string, server *http.Server, store *Store, projectName string, br BridgeBinder) {
+func RunApp(addr string, server *http.Server, store *Store, projectName string, br BridgeBinder, devURL string) {
 	initLogFile()
 	defer func() {
 		if logFile != "" {
@@ -257,11 +258,18 @@ func RunApp(addr string, server *http.Server, store *Store, projectName string, 
 	}
 
 	dbg("STEP-6: Init (inject CSS)")
-	w.Init(buildInjectJS(injectCSS))
+	w.Init(buildInjectJS(injectCSS, DisableContextmenu))
 	dbg("STEP-6: ok")
 
-	dbg("STEP-7: Navigate -> %s", addr)
-	w.Navigate(addr)
+	dbg("STEP-7: Navigate")
+	navigateURL := addr
+	if devURL != "" {
+		navigateURL = devURL
+		dbg("  dev mode, navigating to Vite: %s", devURL)
+	} else {
+		dbg("  navigating to local server: %s", addr)
+	}
+	w.Navigate(navigateURL)
 	dbg("STEP-7: ok")
 
 	dbg("STEP-8: Dispatch (Apply post-show config)")

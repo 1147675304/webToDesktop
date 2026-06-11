@@ -4,6 +4,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -50,6 +51,11 @@ func findProject(name string) (string, error) {
 // readEnv 读取 .env.production，补充缺失项
 func readEnv(envFile string) (remoteURL, proxyPrefixes, signHeader string, err error) {
 	if !fileExists(envFile) {
+		// 纯前端项目（无 package.json）用默认值，不报错
+		dir := filepath.Dir(envFile)
+		if !fileExists(filepath.Join(dir, "package.json")) {
+			return "about:blank", "", "", nil
+		}
 		return "", "", "", fmt.Errorf("找不到 %s", envFile)
 	}
 

@@ -20,6 +20,9 @@
 //	window.__lhpanda__('getAllItems')
 //	// 清除全部
 //	window.__lhpanda__('clearItems')
+
+//go:build !minimal && !nostorage
+
 package bridge
 
 import (

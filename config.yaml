@@ -30,25 +30,25 @@ window:
 
   # ———— 窗口状态（三选一，优先级: fullscreen > maximized > 普通） ————
   fullscreen: false     # 全屏：覆盖整个显示器（含任务栏），隐藏一切边框
-  maximized: true      # 最大化：填充工作区（保留任务栏）
+  maximized: false      # 最大化：填充工作区（保留任务栏）
                         # 若都为 false → 普通窗口（width x height）
 
   # ———— 窗口样式 ————
-  borderless: true      # 无边框窗口（隐藏标题栏）
+  borderless: false      # 无边框窗口（隐藏标题栏）
                         # ★ 若为 true，前端 APP.vue 需包含：
                         #   - drag-bar 拖拽条（8px 顶部）
                         #   - resize 手柄（左/右/下/左下/右下 5个边角）
                         #   - win-controls 窗口控制按钮（最大化/全屏/关闭）
-  always_on_top: true   # 窗口始终置顶于其他窗口之上
+  always_on_top: false   # 窗口始终置顶于其他窗口之上
   opacity: 0.99       # 窗口整体不透明度（0.0=全透明，1.0=不透明）
                         # 前端无需适配
-  webview_bg_transparent: true  # 控件背景透明（实验性功能，仅 GNOME/KDE 测试通过）
+  webview_bg_transparent: false  # 控件背景透明（实验性功能，仅 GNOME/KDE 测试通过）
                         # true : 控件背景透明，毛玻璃可透过网页透明区域显示
                         # false: 控件背景不透明，网页正常渲染不受影响
                         # ⚠️ 部分 Linux 桌面环境（如麒麟 UKUI）启用此项会导致
                         #    合成器崩溃，请确认你的桌面环境支持后再启用
                         # 启用 Acrylic 时自动视为 true
-  input_passthrough: true  # 透明区域点击穿透（Linux 专用）
+  input_passthrough: false  # 透明区域点击穿透（Linux 专用）
                         # true : 鼠标可穿过透明区域操作下层窗口
                         # false: 所有点击由本窗口捕获（与 Windows 行为一致）
 
@@ -60,9 +60,9 @@ window:
   window_position: "center"
 
   # ———— Windows 专属效果（仅 Windows 平台生效） ————
-  dark_title_bar: true  # 暗色标题栏（Win10 1809+），前端无需适配
-  round_corners: true   # 圆角窗口（Win11），前端无需适配
-  acrylic: true       # Acrylic 毛玻璃背景（仅 Windows 生效），前端无需适配
+  dark_title_bar: false  # 暗色标题栏（Win10 1809+），前端无需适配
+  round_corners: false   # 圆角窗口（Win11），前端无需适配
+  acrylic: false       # Acrylic 毛玻璃背景（仅 Windows 生效），前端无需适配
 
 # ============================================================
 # 可构建的前端项目列表
@@ -75,6 +75,9 @@ projects:
   - name: "demo"
     vue_dir: "demo"
     description: "WebToDesktop 功能演示"
-  - name: "cs"
-    vue_dir: "../xiaoshao/vue"
-    description: "另一个项目"
+  - name: "debugtool"
+    vue_dir: "debugtool"
+    description: "串口调试工具"
+  - name: "myapp"
+    vue_dir: "myapp"
+    description: "hello"

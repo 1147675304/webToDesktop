@@ -1,5 +1,5 @@
 [WTD] === runApp start ===
-[WTD] addr=http://127.0.0.1:40305, width=1366, height=768, borderless=true
+[WTD] addr=http://127.0.0.1:40653, width=1366, height=768, borderless=true
 [WTD] creating WebView...
 [WTD] STEP-1: webview.New
 [WTD] STEP-1: ok, WebView created
@@ -15,11 +15,13 @@
 [WTD] bridge ready: window.__lhpanda__
 [WTD] STEP-6: Init (inject CSS)
 [WTD] STEP-6: ok
-[WTD] STEP-7: Navigate -> http://127.0.0.1:40305
+[WTD] STEP-7: Navigate
+[WTD]   dev mode, navigating to Vite: http://localhost:5173/
 [WTD] STEP-7: ok
 [WTD] STEP-8: Dispatch (Apply post-show config)
 [WTD] STEP-8: dispatched
 [WTD] STEP-9: w.Run (main loop)
+[WTD] signal received, terminating...
 [WTD] STEP-9: main loop exited
 [WTD] === runApp end ===
 [WTD] destroying WebView...

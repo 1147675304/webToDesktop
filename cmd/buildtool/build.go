@@ -17,8 +17,9 @@ func cmdBuildVue(project string) {
 		fatalf("错误: %v", err)
 	}
 
-	infof(">>> 构建 Vue 前端 (%s)...", project)
-	if err := runCmdInDir(vueDir, "pnpm", "run", "build"); err != nil {
+	pm := detectPM(vueDir)
+	infof(">>> 构建前端 (%s, %s)...", project, pm)
+	if err := runCmdInDir(vueDir, pm, "run", "build"); err != nil {
 		fatalf("Vue 构建失败")
 	}
 
@@ -31,8 +32,8 @@ func cmdBuildVue(project string) {
 	for _, entry := range entries {
 		copyPath(filepath.Join(distDir, entry.Name()), filepath.Join(vueEmbed, entry.Name()))
 	}
-	gzipVueDist()
-	infof("Vue 构建完成 → vue/dist/")
+	gzipDist()
+	infof("构建完成 → vue/dist/")
 }
 
 // cmdBuild 构建单个平台
@@ -50,12 +51,30 @@ func cmdBuild(platform, project string) error {
 	if err != nil {
 		return err
 	}
+	// 读取 disableContextmenu（从 .env.production，默认不禁用）
+	envBytes, _ := os.ReadFile(envFile)
+	disableCtxMenu := extractEnvValue(string(envBytes), "VITE_DISABLE_CONTEXTMENU")
+	if disableCtxMenu == "" {
+		// console 模式自动不禁用，桌面模式默认禁用
+		if strings.Contains(platform, "console") {
+			disableCtxMenu = "false"
+		} else {
+			disableCtxMenu = "true"
+		}
+	}
 	fmt.Println("远程服务器:", remoteURL)
 	fmt.Println("代理前缀:  ", proxyPrefixes)
 	fmt.Println("签名请求头:", signHeader)
+	fmt.Println("禁用右键:  ", disableCtxMenu)
+
+	// 读取 build tags（可选模块裁剪）
+	buildTags := extractEnvValue(string(envBytes), "BUILD_TAGS")
+	if buildTags != "" {
+		fmt.Println("构建标签:  ", buildTags)
+	}
 
 	// 3. 复制前端产物
-	if err := copyVueDist(filepath.Join(vueDir, "dist"), project); err != nil {
+	if err := copyDist(vueDir, project); err != nil {
 		return err
 	}
 
@@ -85,15 +104,15 @@ func cmdBuild(platform, project string) error {
 	fmt.Println()
 
 	// 6. Gzip 压缩
-	gzipVueDist()
+	gzipDist()
 
 	// 7. 构建 Go 二进制
 	infof(">>> 构建 Go 二进制 (%s)...", platform)
 
-	ldflags := fmt.Sprintf("-s -w -X 'main.BuildRemoteURL=%s' -X 'main.BuildProxyPrefixes=%s' -X 'main.BuildProjectName=%s' -X 'main.BuildSignHeader=%s'",
-		remoteURL, proxyPrefixes, project, signHeader)
+	ldflags := fmt.Sprintf("-s -w -X 'main.BuildRemoteURL=%s' -X 'main.BuildProxyPrefixes=%s' -X 'main.BuildProjectName=%s' -X 'main.BuildSignHeader=%s' -X 'main.BuildDisableContextmenu=%s'",
+		remoteURL, proxyPrefixes, project, signHeader, disableCtxMenu)
 
-	if err := goBuild(platform, ldflags); err != nil {
+	if err := goBuild(platform, ldflags, buildTags); err != nil {
 		return err
 	}
 
@@ -117,7 +136,7 @@ func cmdAll(project string) {
 	fmt.Println(cGreen + "╚══════════════════════════════════════════════╝" + cReset)
 	fmt.Println()
 
-	platforms := []string{"linux-amd64", "linux-arm64", "linux-loong64", "windows"}
+	platforms := []string{"linux-amd64", "linux-amd64-console", "linux-arm64", "linux-loong64", "windows", "windows-console"}
 	var failed []string
 
 	for _, plat := range platforms {
@@ -181,8 +200,8 @@ func copyDesktopIcons(envStr string) {
 }
 
 // goBuild 执行 go build
-func goBuild(platform, baseLdflags string) error {
-	cfg := buildCfg(platform, baseLdflags)
+func goBuild(platform, baseLdflags, buildTags string) error {
+	cfg := buildCfg(platform, baseLdflags, buildTags)
 	fmt.Println(cfg.desc)
 
 	if cfg.preSetup != nil {
@@ -194,6 +213,9 @@ func goBuild(platform, baseLdflags string) error {
 	args := []string{"build"}
 	if cfg.ldflags != "" {
 		args = append(args, "-ldflags="+cfg.ldflags)
+	}
+	if cfg.buildTags != "" {
+		args = append(args, "-tags="+cfg.buildTags)
 	}
 	if fileExists("vendor") {
 		args = append(args, "-mod=vendor")
@@ -212,18 +234,20 @@ type buildConfig struct {
 	desc     string
 	output   string
 	ldflags  string
+	buildTags string
 	env      []string
 	preSetup func() error
 }
 
-func buildCfg(platform, baseLdflags string) buildConfig {
+func buildCfg(platform, baseLdflags, buildTags string) buildConfig {
 	switch platform {
 	case "linux":
 		arch := getTargetArch()
 		return buildConfig{
-			desc:     fmt.Sprintf("  目标: Linux %s (WebKitGTK)", arch),
-			output:   filepath.Join(outputDir, appName+"-linux-"+arch),
-			ldflags:  baseLdflags,
+			desc:      fmt.Sprintf("  目标: Linux %s (WebKitGTK)", arch),
+			output:    filepath.Join(outputDir, appName+"-linux-"+arch),
+			ldflags:   baseLdflags,
+			buildTags: buildTags,
 			env:      addPkgConfigPath("CGO_ENABLED=1", "GOARCH="+arch),
 			preSetup: func() error { return setupLinuxCrossCC(arch) },
 		}
@@ -231,7 +255,17 @@ func buildCfg(platform, baseLdflags string) buildConfig {
 		return buildConfig{
 			desc:     "  目标: Linux amd64 (WebKitGTK)",
 			output:   filepath.Join(outputDir, appName+"-linux-amd64"),
-			ldflags:  baseLdflags,
+			ldflags:   baseLdflags,
+			buildTags: buildTags,
+			env:      addPkgConfigPath("CGO_ENABLED=1", "GOARCH=amd64"),
+			preSetup: func() error { return setupLinuxCrossCC("amd64") },
+		}
+	case "linux-amd64-console":
+		return buildConfig{
+			desc:     "  目标: Linux amd64 + 控制台 (调试用)",
+			output:   filepath.Join(outputDir, appName+"-linux-amd64-console"),
+			ldflags:   baseLdflags,
+			buildTags: buildTags,
 			env:      addPkgConfigPath("CGO_ENABLED=1", "GOARCH=amd64"),
 			preSetup: func() error { return setupLinuxCrossCC("amd64") },
 		}
@@ -239,7 +273,8 @@ func buildCfg(platform, baseLdflags string) buildConfig {
 		return buildConfig{
 			desc:     "  目标: Linux arm64 (WebKitGTK)",
 			output:   filepath.Join(outputDir, appName+"-linux-arm64"),
-			ldflags:  baseLdflags,
+			ldflags:   baseLdflags,
+			buildTags: buildTags,
 			env:      addPkgConfigPath("CGO_ENABLED=1", "GOARCH=arm64"),
 			preSetup: func() error { return setupLinuxCrossCC("arm64") },
 		}
@@ -247,7 +282,8 @@ func buildCfg(platform, baseLdflags string) buildConfig {
 		return buildConfig{
 			desc:     "  目标: Linux loong64 / 龙芯 (WebKitGTK)",
 			output:   filepath.Join(outputDir, appName+"-linux-loong64"),
-			ldflags:  baseLdflags,
+			ldflags:   baseLdflags,
+			buildTags: buildTags,
 			env:      addPkgConfigPath("CGO_ENABLED=1", "GOARCH=loong64"),
 			preSetup: func() error { return setupLinuxCrossCC("loong64") },
 		}
@@ -255,7 +291,8 @@ func buildCfg(platform, baseLdflags string) buildConfig {
 		return buildConfig{
 			desc:    "  目标: Windows (Edge WebView2)\n  要求: sudo apt install gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64",
 			output:  filepath.Join(outputDir, appName+".exe"),
-			ldflags: "-H windowsgui " + baseLdflags,
+			ldflags:   "-H windowsgui " + baseLdflags,
+			buildTags: buildTags,
 			env: []string{
 				"CGO_ENABLED=1",
 				"CGO_CXXFLAGS=-I" + filepath.Join(projectRoot, "include_win"),
@@ -268,7 +305,8 @@ func buildCfg(platform, baseLdflags string) buildConfig {
 		return buildConfig{
 			desc:    "  目标: Windows + 控制台 (调试用)",
 			output:  filepath.Join(outputDir, appName+"-console.exe"),
-			ldflags: baseLdflags,
+			ldflags:   baseLdflags,
+			buildTags: buildTags,
 			env: []string{
 				"CGO_ENABLED=1",
 				"CGO_CXXFLAGS=-I" + filepath.Join(projectRoot, "include_win"),
@@ -277,11 +315,12 @@ func buildCfg(platform, baseLdflags string) buildConfig {
 				"GOOS=windows", "GOARCH=amd64",
 			},
 		}
-	default: // current
+	default: // current / current-console
 		return buildConfig{
 			desc:    "  目标: 当前平台",
 			output:  filepath.Join(outputDir, appName),
-			ldflags: baseLdflags,
+			ldflags:   baseLdflags,
+			buildTags: buildTags,
 			env:     addPkgConfigPath("CGO_ENABLED=1"),
 		}
 	}

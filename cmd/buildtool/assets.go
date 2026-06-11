@@ -48,26 +48,61 @@ func generateIcon(favicon string) {
 	}
 }
 
-// copyVueDist 复制 Vue 构建产物到 embed 目录
-func copyVueDist(distDir, project string) error {
-	if !fileExists(filepath.Join(distDir, "index.html")) {
-		fatalf("错误: %s 中未找到前端构建产物", distDir)
-		fmt.Printf(cYellow+"请先在该项目目录中执行: cd %s/.. && pnpm run build"+cReset+"\n", distDir)
-		fmt.Printf(cYellow+"或使用: go run ./cmd/buildtool build-vue %s"+cReset+"\n", project)
-		os.Exit(1)
+// copyDist 复制前端构建产物到 embed 目录。
+//
+// 按以下优先级查找产物源目录:
+//   1. .env.production 中 BUILD_OUTPUT_DIR 指定的目录
+//   2. {projectDir}/dist （Vite/Webpack 等构建工具的默认输出）
+//   3. {projectDir} 本身（纯 HTML 项目，无构建步骤）
+func copyDist(projectDir, project string) error {
+	// 优先级 1: 读取 .env.production 配置
+	envFile := filepath.Join(projectDir, ".env.production")
+	envBytes, _ := os.ReadFile(envFile)
+	envStr := string(envBytes)
+	if outDir := extractEnvValue(envStr, "BUILD_OUTPUT_DIR"); outDir != "" {
+		distDir := filepath.Join(projectDir, outDir)
+		if fileExists(filepath.Join(distDir, "index.html")) {
+			return doCopyDist(distDir, project)
+		}
 	}
 
+	// 优先级 2: 标准 dist/ 目录
+	distDir := filepath.Join(projectDir, "dist")
+	if fileExists(filepath.Join(distDir, "index.html")) {
+		return doCopyDist(distDir, project)
+	}
+
+	// 优先级 3: 项目根目录本身（纯 HTML 等项目）
+	if fileExists(filepath.Join(projectDir, "index.html")) {
+		fmt.Println(cYellow + ">>> 检测到纯前端项目（无构建步骤），直接复制项目文件..." + cReset)
+		return doCopyDist(projectDir, project)
+	}
+
+	fatalf("错误: %s 中未找到前端构建产物（dist/index.html 或 index.html）", projectDir)
+	fmt.Printf(cYellow+"请先在该项目目录中执行: cd %s && pnpm run build"+cReset+"\n", projectDir)
+	fmt.Printf(cYellow+"或使用: go run ./cmd/buildtool build-vue %s"+cReset+"\n", project)
+	os.Exit(1)
+	return nil
+}
+
+// doCopyDist 执行实际的文件复制操作。
+func doCopyDist(srcDir, project string) error {
 	fmt.Println(cYellow + ">>> 复制前端产物 (" + project + ")..." + cReset)
 	os.RemoveAll(vueEmbed)
 	os.MkdirAll(vueEmbed, 0755)
 
-	entries, err := os.ReadDir(distDir)
+	entries, err := os.ReadDir(srcDir)
 	if err != nil {
-		return err
+		return fmt.Errorf("读取 %s 失败: %w", srcDir, err)
 	}
 	for _, entry := range entries {
-		src := filepath.Join(distDir, entry.Name())
-		dst := filepath.Join(vueEmbed, entry.Name())
+		name := entry.Name()
+		// 跳过常见的非产物目录/文件
+		if name == "node_modules" || name == ".git" || name == ".env.production" || name == "package.json" || name == "pnpm-lock.yaml" || name == "tsconfig.json" || name == "vite.config.ts" || strings.HasPrefix(name, "src") {
+			continue
+		}
+		src := filepath.Join(srcDir, name)
+		dst := filepath.Join(vueEmbed, name)
 		if err := copyPath(src, dst); err != nil {
 			return fmt.Errorf("复制 %s 失败: %w", src, err)
 		}
@@ -76,8 +111,8 @@ func copyVueDist(distDir, project string) error {
 	return nil
 }
 
-// gzipVueDist 压缩 vue/dist 中所有文件（原文件替换为 .gz）
-func gzipVueDist() {
+// gzipDist 压缩 embed 目录中所有文件为 .gz（原文件替换）
+func gzipDist() {
 	fmt.Println(cYellow + ">>> Gzip 压缩前端资源 (-9)..." + cReset)
 	filepath.Walk(vueEmbed, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {

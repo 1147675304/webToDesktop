@@ -24,7 +24,9 @@ var configData []byte
 var BuildRemoteURL string
 var BuildProxyPrefixes string
 var BuildProjectName string
-var BuildSignHeader string // 桌面端签名请求头名称（默认 X-Desktop-Signature）
+var BuildSignHeader string         // 桌面端签名请求头名称（默认 X-Desktop-Signature）
+var BuildDisableContextmenu string // "true" 则禁用右键菜单
+var BuildDevURL string              // 开发模式 Vite URL，非空时 webview 直接导航到此
 
 func main() {
 	// 解析配置
@@ -79,7 +81,9 @@ func main() {
 		br = bridge.New(store)
 	}
 
-	pkg.RunApp(addr, server, store, BuildProjectName, br)
+	pkg.DisableContextmenu = BuildDisableContextmenu == "true"
+
+	pkg.RunApp(addr, server, store, BuildProjectName, br, BuildDevURL)
 }
 
 func parseProxyPrefixes(raw string) []string {

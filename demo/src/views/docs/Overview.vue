@@ -1,7 +1,7 @@
 <template>
   <div>
     <h2><el-icon><Reading /></el-icon> 概述</h2>
-    <p class="intro">WebToDesktop 将任意 Vue 前端项目打包为桌面 EXE 程序，提供以下核心能力：</p>
+    <p class="intro">WebToDesktop 将任意前端项目打包为桌面应用，提供以下核心能力：</p>
 
     <div class="feature-cards">
       <router-link to="/docs/credentials" class="f-card">
@@ -22,19 +22,29 @@
       <router-link to="/docs/storage" class="f-card">
         <span class="f-icon"><el-icon><FolderOpened /></el-icon></span>
         <span class="f-title">键值对持久化存储</span>
-        <span class="f-desc">透明接管 localStorage，AES 加密持久化，无缝切换桌面/浏览器</span>
+        <span class="f-desc">透明接管 localStorage，AES 加密持久化</span>
+      </router-link>
+      <router-link to="/docs/bridge" class="f-card">
+        <span class="f-icon"><el-icon><Switch /></el-icon></span>
+        <span class="f-title">Bridge API</span>
+        <span class="f-desc">Go↔JS 桥接，零配置新增方法，自动注册</span>
+      </router-link>
+      <router-link to="/docs/stream" class="f-card">
+        <span class="f-icon"><el-icon><Bell /></el-icon></span>
+        <span class="f-title">流式数据推送</span>
+        <span class="f-desc">Go channel → JS CustomEvent，交互式控制</span>
       </router-link>
       <router-link to="/docs/build" class="f-card">
         <span class="f-icon"><el-icon><Box /></el-icon></span>
         <span class="f-title">构建与部署</span>
-        <span class="f-desc">make 命令、交叉编译、配置文件说明</span>
+        <span class="f-desc">Vite/Webpack/纯HTML，自动检测包管理器</span>
       </router-link>
     </div>
   </div>
 </template>
 
 <script setup>
-import { Reading, Lock, Connection, Box, Monitor, FolderOpened } from '@element-plus/icons-vue'
+import { Reading, Lock, Connection, Box, Monitor, FolderOpened, Switch, Bell } from '@element-plus/icons-vue'
 </script>
 
 <style scoped>

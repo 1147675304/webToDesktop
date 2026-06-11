@@ -21,6 +21,9 @@
 //	window.__lhpanda__('deleteCredentials', {username: 'admin'})
 //	// 清除全部
 //	window.__lhpanda__('clearCredentials')
+
+//go:build !minimal && !nocredentials
+
 package bridge
 
 import (

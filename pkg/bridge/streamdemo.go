@@ -11,6 +11,9 @@
 //	window.__lhpanda__('stopReadmeStream')
 //
 // 前端监听 stream-data 事件获取每行数据。
+
+//go:build !minimal && !nostream
+
 package bridge
 
 import (

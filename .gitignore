@@ -11,8 +11,8 @@ desktop.zip
 *.zip
 
 # 示例 Vue 项目（仅保留源码）
-demo/node_modules/
-demo/dist/
+*/node_modules/
+*/dist/
 
 # Windows 资源文件（由构建脚本自动生成）
 rsrc.syso
@@ -31,3 +31,4 @@ _app.ico
 # OS
 .DS_Store
 Thumbs.db
+wtd-debug.log

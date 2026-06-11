@@ -20,6 +20,9 @@
 // 安全性:
 //   - 所有 JS 评估通过 wv.Dispatch 在 UI 线程执行
 //   - JSON 序列化处理特殊字符，防止注入
+
+//go:build !minimal && !nostream
+
 package bridge
 
 import (

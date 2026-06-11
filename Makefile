@@ -40,7 +40,7 @@ build:
 build-all:
 	@$(BUILD_TOOL) all $(PROJECT)
 
-build-linux build-linux-amd64 build-linux-arm64 build-linux-loong64 build-windows build-windows-console:
+build-linux build-linux-amd64 build-linux-arm64 build-linux-loong64 build-windows build-windows-console build-linux-amd64-console build-current-console:
 	@$(BUILD_TOOL) $(subst build-,,$@) $(PROJECT)
 
 build-vue:
