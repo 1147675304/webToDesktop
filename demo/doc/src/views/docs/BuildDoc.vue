@@ -39,10 +39,12 @@
 ├── Makefile                   ← 构建脚本
 ├── cmd/buildtool/             ← 构建工具（make 调用的入口）
 │   ├── main.go                ← 命令分发
+│   ├── arch.go                ← 架构检测 + 交叉编译环境
+│   ├── assets.go              ← 图标生成 / 产物复制 / gzip
 │   ├── build.go               ← 构建逻辑（交叉编译 / gzip / 图标）
-│   ├── run.go                 ← 运行 / dev / 交互菜单
 │   ├── config.go              ← 配置解析（config.yaml / .env）
-│   └── assets.go              ← 图标生成 / 产物复制 / gzip
+│   ├── run.go                 ← 运行 / dev / 交互菜单
+│   └── utils.go               ← 通用工具函数
 ├── pkg/                       ← Go 运行时包
 │   ├── config.go              ← Config 类型 + InitConfig
 │   ├── store.go               ← AES 加密存储
@@ -50,28 +52,41 @@
 │   ├── webview.go             ← 原生 WebView 窗口
 │   ├── webview_linux.go       ← Linux 平台 WebView
 │   ├── webview_win.go         ← Windows 平台 WebView
+│   ├── icon.png               ← 默认桌面图标
+│   ├── icon_linux.go          ← Linux 图标嵌入
+│   ├── icon_other.go          ← 其他平台图标桩
 │   └── bridge/                ← Go↔JS 桥接
 │       ├── bridge.go          ← 核心调度器 + 反射自动注册
-│       ├── credentials.go     ← 凭证管理
-│       ├── storage.go         ← 键值对存储
-│       ├── window.go          ← 窗口控制
 │       ├── config.go          ← 窗口配置 + getString 等辅助
+│       ├── credentials.go     ← 凭证管理
+│       ├── serial.go          ← 串口底层操作
+│       ├── serial_bridge.go   ← 串口 + 网络桥接 API
+│       ├── storage.go         ← 键值对存储
 │       ├── stream.go          ← 流式推送基础设施
-│       └── serial.go / serial_bridge.go  ← 串口 + 网络桥接
+│       ├── streamdemo.go      ← 流式推送演示
+│       └── window.go          ← 窗口控制
 ├── native/                    ← 平台原生 API
+│   ├── config.go              ← 统一窗口外观配置接口
 │   ├── linux.go               ← GTK3
 │   ├── windows.go             ← Win32
 │   └── other.go               ← 其他平台桩
-├── demo/                      ← Vue 3 演示项目
-├── debugtool/                 ← 串口调试工具
-├── myapp/                     ← 纯 HTML 示例
-└── vue/dist/                  ← 构建时前端嵌入目录</CodeBlock>
+├── include_win/               ← Windows WebView2 头文件
+│   ├── EventToken.h
+│   └── WebView2.h
+├── demo/                      ← 前端示例项目
+│   ├── doc/                   ← WebToDesktop 文档（Vue 3）
+│   ├── serial/                ← 串口调试工具（Vue 3）
+│   └── myapp/                 ← 纯 HTML 示例
+├── assets/                    ← 构建资源
+├── build/                     ← 构建产物输出
+├── pkgconfig/                 ← pkg-config 配置
+└── vue/                       ← 构建时前端嵌入目录</CodeBlock>
 
     <h3>添加新项目</h3>
     <p class="hint">在 <code>config.yaml</code> 中添加一行即可：</p>
     <CodeBlock lang="yaml">projects:
   - name: "my-app"
-    vue_dir: "../my-app/vue"
+    vue_dir: "demo/my-app"
     description: "我的应用"
 
   # 纯 HTML 项目也支持
