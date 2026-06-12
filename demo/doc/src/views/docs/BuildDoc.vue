@@ -124,6 +124,24 @@ BUILD_TAGS=minimal             # 仅核心模块
       </tbody>
     </table>
 
+    <h3 id="external-html">外挂 HTML 模式</h3>
+    <p class="hint">在 <code>config.yaml</code> 的项目配置中添加 <code>external_html: true</code>，构建时前端文件**不嵌入二进制**，而是复制到 <code>build/web/</code> 目录：</p>
+    <CodeBlock lang="yaml">projects:
+  - name: "xx"
+    vue_dir: "demo/xingxing"
+    external_html: true</CodeBlock>
+    <p class="hint">运行时二进制从自身所在目录的 <code>web/</code> 子目录读取前端文件。同时自动读取 <code>web/.env.production</code> 覆盖运行时配置：</p>
+    <table class="api-table">
+      <thead><tr><th>配置项</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>VITE_REMOTE_API_URL</code></td><td>远程 API 地址</td></tr>
+        <tr><td><code>VITE_PROXY_PREFIXES</code></td><td>代理路径前缀（逗号分隔）</td></tr>
+        <tr><td><code>VITE_DISABLE_CONTEXTMENU</code></td><td><code>true</code> 禁用右键菜单</td></tr>
+        <tr><td><code>VITE_DESKTOP_SIGN_HEADER</code></td><td>签名请求头名称</td></tr>
+      </tbody>
+    </table>
+    <p class="hint">控制台调试版（<code>build-*-console</code>）还会自动监控 <code>web/</code> 文件变更并刷新页面，无需手动重启。</p>
+
     <h3>窗口配置 (config.yaml)</h3>
     <table class="api-table">
       <thead><tr><th>配置项</th><th>类型</th><th>默认</th><th>说明</th></tr></thead>

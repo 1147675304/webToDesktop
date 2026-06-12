@@ -30,6 +30,9 @@
       <router-link to="/docs/keyboard" active-class="active" class="nav-item">
         <span><el-icon><Key /></el-icon> 键盘快捷键</span>
       </router-link>
+      <router-link to="/docs/build" active-class="active" class="nav-item">
+        <span><el-icon><FolderOpened /></el-icon> 外挂 HTML</span>
+      </router-link>
     </nav>
 
     <!-- 内容区 -->

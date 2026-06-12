@@ -77,6 +77,8 @@ make dev          # 选 myapp → 自动构建运行
 2. 执行 `build` 脚本 → 复制产物到 embed 目录 → Gzip 压缩 → 编译 Go 二进制
 3. 桌面窗口加载 embed 前端，`/api/*` 代理到远程服务器
 
+> 外挂 HTML 模式（`external_html: true`）跳过步骤 2 中的 Gzip 压缩，产物复制到 `build/web/` 目录，二进制从磁盘读取前端文件。控制台（调试）版还会自动监控 `web/` 文件变更并刷新页面。
+
 ## 支持的项目类型
 
 | 类型 | 检测方式 | build 命令 | dev 模式 |
@@ -85,6 +87,31 @@ make dev          # 选 myapp → 自动构建运行
 | 纯 HTML | 无 `package.json`，有 `index.html` | 跳过，直接复制 | 构建后运行 |
 
 > 包管理器从锁文件自动检测。无需配置。
+
+### 外挂 HTML 模式
+
+在 `config.yaml` 的项目配置中添加 `external_html: true`，构建时前端文件**不嵌入二进制**，而是复制到 `build/web/` 目录：
+
+```yaml
+projects:
+  - name: "xx"
+    vue_dir: "demo/xingxing"
+    external_html: true
+```
+
+运行时二进制从自身所在目录的 `web/` 子目录读取前端文件。同时，`web/.env.production` 中的配置项会在启动时覆盖构建时注入的值，实现**不重新构建即可修改远程地址、代理前缀等运行时配置**：
+
+| 配置项 | 说明 |
+|--------|------|
+| `VITE_REMOTE_API_URL` | 远程 API 地址 |
+| `VITE_PROXY_PREFIXES` | 代理路径前缀（逗号分隔） |
+| `VITE_DISABLE_CONTEXTMENU` | `true` 禁用右键菜单 |
+| `VITE_DESKTOP_SIGN_HEADER` | 签名请求头名称 |
+
+- **开发调试**（`build-*-console`）：修改 `web/` 中的文件后页面**自动刷新**，无需重启程序
+- **生产发布**（`build-*`）：不启动文件监控，性能最优
+
+适用于需要频繁调整 HTML/JS 的项目。
 
 ### config.yaml（全局）
 

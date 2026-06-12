@@ -74,6 +74,9 @@ func cmdBuild(platform, project string) error {
 		fmt.Println("构建标签:  ", buildTags)
 	}
 
+	// 查询是否启用外挂 HTML
+	externalHTML := isExternalHTML(project)
+
 	// 3. 复制前端产物
 	if err := copyDist(vueDir, project); err != nil {
 		return err
@@ -84,14 +87,13 @@ func cmdBuild(platform, project string) error {
 	envStr := string(envData)
 	copyDesktopIcons(envStr)
 
-	// 5. 生成 EXE 图标
+	// 5. 生成 EXE 图标（外挂和嵌入模式都需要）
 	winIconPath := extractEnvValue(envStr, "DESKTOP_ICON_WINDOWS")
 	if winIconPath == "" {
 		winIconPath = filepath.Join(vueEmbed, "favicon.ico")
 	} else {
 		winIconPath = filepath.Join(vueEmbed, winIconPath)
 	}
-	// 找不到时用 pkg/icon.png 转为 ICO
 	if !fileExists(winIconPath) {
 		pngDefault := filepath.Join(projectRoot, "pkg", "icon.png")
 		if fileExists(pngDefault) {
@@ -104,14 +106,31 @@ func cmdBuild(platform, project string) error {
 	}
 	fmt.Println()
 
-	// 6. Gzip 压缩
-	gzipDist()
+	if externalHTML {
+		// 外挂 HTML 模式：复制到构建输出目录的 web/ 子目录，跳过 gzip
+		webDir := filepath.Join(outputDir, "web")
+		os.RemoveAll(webDir)
+		os.MkdirAll(webDir, 0755)
+		entries, _ := os.ReadDir(vueEmbed)
+		for _, entry := range entries {
+			copyPath(filepath.Join(vueEmbed, entry.Name()), filepath.Join(webDir, entry.Name()))
+		}
+		// vue/dist/ 留一个占位文件使 //go:embed 不报错
+		os.MkdirAll(vueEmbed, 0755)
+		os.WriteFile(filepath.Join(vueEmbed, ".gitkeep"), []byte{}, 0644)
+		fmt.Printf(">>> 外挂 HTML → %s/\n", webDir)
+		fmt.Println(">>> 外挂模式：跳过 gzip 压缩")
+	} else {
+		// 6. Gzip 压缩（仅嵌入模式）
+		gzipDist()
+	}
 
 	// 7. 构建 Go 二进制
 	infof(">>> 构建 Go 二进制 (%s)...", platform)
 
-	ldflags := fmt.Sprintf("-s -w -X 'main.BuildRemoteURL=%s' -X 'main.BuildProxyPrefixes=%s' -X 'main.BuildProjectName=%s' -X 'main.BuildSignHeader=%s' -X 'main.BuildDisableContextmenu=%s'",
-		remoteURL, proxyPrefixes, project, signHeader, disableCtxMenu)
+	isConsole := strings.Contains(platform, "console")
+	ldflags := fmt.Sprintf("-s -w -X 'main.BuildRemoteURL=%s' -X 'main.BuildProxyPrefixes=%s' -X 'main.BuildProjectName=%s' -X 'main.BuildSignHeader=%s' -X 'main.BuildDisableContextmenu=%s' -X 'main.BuildExternalHTML=%s' -X 'main.BuildConsole=%s'",
+		remoteURL, proxyPrefixes, project, signHeader, disableCtxMenu, fmt.Sprint(externalHTML), fmt.Sprint(isConsole))
 
 	if err := goBuild(platform, ldflags, buildTags, project); err != nil {
 		return err

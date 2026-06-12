@@ -186,7 +186,7 @@ func buildInjectJS(css string, disableCtxMenu bool, accessToken string) string {
 // RunApp 使用系统原生 WebView 创建独立窗口。
 // br 是桥接绑定器（bridge.Bridge），关联 WebView 窗口后绑定到 JS。
 // accessToken 是随机令牌，用于防止浏览器直接访问本地服务。
-func RunApp(addr, accessToken string, server *http.Server, store *Store, projectName string, br BridgeBinder, devURL string) {
+func RunApp(addr, accessToken string, server *http.Server, store *Store, projectName string, br BridgeBinder, devURL string, externalWebDir string, isConsole bool) {
 	initLogFile()
 	defer func() {
 		if logFile != "" {
@@ -365,6 +365,33 @@ func RunApp(addr, accessToken string, server *http.Server, store *Store, project
 				if key != "" {
 					js := fmt.Sprintf("window.dispatchEvent(new CustomEvent('keyboard-shortcut',{detail:{key:%q}}))", key)
 					w.Dispatch(func() { w.Eval(js) })
+				}
+			}
+		}()
+	}
+
+	// ★ 外挂 HTML + 调试模式：文件变更监控 → 自动刷新页面
+	if externalWebDir != "" && isConsole {
+		go func() {
+			pollInterval := 1 * time.Second
+			lastMod := time.Now()
+			for {
+				time.Sleep(pollInterval)
+				changed := false
+				filepath.Walk(externalWebDir, func(path string, info os.FileInfo, err error) error {
+					if err != nil || info.IsDir() {
+						return nil
+					}
+					if info.ModTime().After(lastMod) {
+						changed = true
+						return filepath.SkipDir
+					}
+					return nil
+				})
+				if changed {
+					dbg("[WTD] web/ 文件变更，自动刷新页面")
+					w.Dispatch(func() { w.Eval("location.reload()") })
+					lastMod = time.Now()
 				}
 			}
 		}()

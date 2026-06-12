@@ -98,3 +98,4 @@ projects:
   - name: "xx"
     vue_dir: "demo/xingxing"
     description: "hello"
+    external_html: true     # 外挂 HTML 模式：文件复制到 web/ 目录，不嵌入二进制

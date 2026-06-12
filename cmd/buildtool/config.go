@@ -17,9 +17,10 @@ type BuildConfig struct {
 		Version string `yaml:"version"`
 	} `yaml:"app"`
 	Projects []struct {
-		Name        string `yaml:"name"`
-		Description string `yaml:"description"`
-		VueDir      string `yaml:"vue_dir"`
+		Name         string `yaml:"name"`
+		Description  string `yaml:"description"`
+		VueDir       string `yaml:"vue_dir"`
+		ExternalHTML bool   `yaml:"external_html"`
 	} `yaml:"projects"`
 }
 
@@ -46,6 +47,36 @@ func findProject(name string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("在 config.yaml 中找不到项目 '%s'", name)
+}
+
+func getProjectConfigByIndex(idx int) (*struct {
+	Name         string `yaml:"name"`
+	Description  string `yaml:"description"`
+	VueDir       string `yaml:"vue_dir"`
+	ExternalHTML bool   `yaml:"external_html"`
+}, error) {
+	cfg, err := loadConfig()
+	if err != nil {
+		return nil, err
+	}
+	if idx < 0 || idx >= len(cfg.Projects) {
+		return nil, fmt.Errorf("项目索引 %d 超出范围", idx)
+	}
+	return &cfg.Projects[idx], nil
+}
+
+// isExternalHTML 从 config.yaml 查询指定项目是否启用外挂 HTML 模式。
+func isExternalHTML(project string) bool {
+	cfg, err := loadConfig()
+	if err != nil {
+		return false
+	}
+	for _, p := range cfg.Projects {
+		if p.Name == project {
+			return p.ExternalHTML
+		}
+	}
+	return false
 }
 
 // readEnv 读取 .env.production，补充缺失项
