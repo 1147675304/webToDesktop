@@ -34,7 +34,8 @@ type Store struct {
 }
 
 // NewStore 创建存储实例。
-func NewStore() (*Store, error) {
+// projectName 用于隔离不同前端项目的持久化数据。
+func NewStore(projectName string) (*Store, error) {
 	configDir, err := os.UserConfigDir()
 	if err != nil {
 		return nil, fmt.Errorf("获取用户配置目录失败: %w", err)
@@ -43,6 +44,10 @@ func NewStore() (*Store, error) {
 	appDir := AppCfg.App.Name
 	if appDir == "" {
 		appDir = "webtodesktop"
+	}
+	// 按项目名称隔离持久化数据
+	if projectName != "" {
+		appDir = appDir + "/" + projectName
 	}
 	dir := filepath.Join(configDir, appDir)
 	if err := os.MkdirAll(dir, 0700); err != nil {

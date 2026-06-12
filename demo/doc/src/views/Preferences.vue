@@ -111,6 +111,29 @@
         </div>
       </section>
 
+      <!-- 键盘快捷键 -->
+      <section class="card">
+        <h2><el-icon><Key /></el-icon> 键盘快捷键</h2>
+        <p class="hint">注册的快捷键被按下时会被拦截并派发 <code>keyboard-shortcut</code> 事件到前端。</p>
+
+        <div class="checkbox-group">
+          <label class="checkbox-label">
+            <input type="checkbox" v-model="keyboardEnabled" @change="toggleKeyboard" />
+            <span>启用快捷键拦截</span>
+          </label>
+        </div>
+
+        <div v-if="keyboardEnabled" style="margin-top: 12px;">
+          <label class="checkbox-label" style="font-size: 13px; color: var(--text-secondary);">
+            <span>已注册的快捷键：</span>
+          </label>
+          <div v-if="registeredShortcuts.length === 0" class="hint" style="margin: 4px 0 0 20px;">（暂无）</div>
+          <div v-else class="shortcut-list">
+            <span v-for="s in registeredShortcuts" :key="s" class="shortcut-tag">{{ s }}</span>
+          </div>
+        </div>
+      </section>
+
       <!-- 操作按钮 -->
       <div class="actions">
         <button class="btn primary" @click="saveConfig" :disabled="saving">
@@ -128,7 +151,7 @@
 
 <script setup>
 import { reactive, ref, onMounted, inject } from 'vue'
-import { Setting, Tools, Monitor, BrushFilled, UploadFilled, RefreshRight, Refresh, CircleCheckFilled, CircleCloseFilled } from '@element-plus/icons-vue'
+import { Setting, Tools, Monitor, BrushFilled, UploadFilled, RefreshRight, Refresh, CircleCheckFilled, CircleCloseFilled, Key } from '@element-plus/icons-vue'
 
 const bridge = inject('bridge', {})
 
@@ -147,6 +170,39 @@ const defaults = { ...form }
 const saving = ref(false)
 const saveMsg = ref('')
 const saveMsgType = ref('ok')
+
+// 键盘快捷键
+const keyboardEnabled = ref(false)
+const registeredShortcuts = ref([])
+
+onMounted(async () => {
+  try {
+    const cfg = await bridge.getWindowConfig()
+    if (cfg) Object.assign(form, cfg)
+    Object.assign(defaults, form)
+  } catch (e) {
+    console.warn('加载窗口配置失败:', e)
+  }
+  // 加载已注册的快捷键列表
+  try {
+    const list = await bridge.listShortcuts()
+    registeredShortcuts.value = list?.shortcuts || []
+    keyboardEnabled.value = registeredShortcuts.value.length > 0
+  } catch (e) {
+    console.warn('加载快捷键列表失败:', e)
+  }
+})
+
+async function toggleKeyboard() {
+  try {
+    await bridge.setKeyboardEnabled({ enabled: keyboardEnabled.value })
+    const list = await bridge.listShortcuts()
+    registeredShortcuts.value = list?.shortcuts || []
+  } catch (e) {
+    console.error('切换快捷键状态失败:', e)
+    keyboardEnabled.value = !keyboardEnabled.value
+  }
+}
 
 onMounted(async () => {
   try {
@@ -248,6 +304,13 @@ function loadDefaults() {
   background: #00000010; color: var(--text-secondary); margin-left: 4px;
 }
 .platform-tag.linux { background: #f0e6d2; color: #8b6914; }
+
+.shortcut-list { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 0 20px; }
+.shortcut-tag {
+  display: inline-block; font-size: 11px; font-family: monospace;
+  padding: 2px 8px; border-radius: 4px;
+  background: var(--accent-dim); color: var(--accent); border: 1px solid transparent;
+}
 
 .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 

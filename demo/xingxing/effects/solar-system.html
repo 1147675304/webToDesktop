@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>太阳系 - 九大行星</title>
+    <link rel="stylesheet" href="../bridge.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { cursor: none; user-select: none; -webkit-user-select: none; }
+        body {
+            width: 100vw; height: 100vh; overflow: hidden;
+            background: transparent;
+            display: flex; justify-content: center; align-items: center;
+            pointer-events: none;
+        }
+
+        #stars-canvas {
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%; z-index: 0;
+            pointer-events: none;
+        }
+
+        .solar-system {
+            position: relative; width: 1200px; height: 1200px; z-index: 1;
+        }
+
+        .sun {
+            position: absolute; top: 50%; left: 50%;
+            width: 120px; height: 120px;
+            margin-left: -60px; margin-top: -60px;
+            background: radial-gradient(circle, #fff7a0 0%, #ffcc00 30%, #ff8800 60%, #ff4400 100%);
+            border-radius: 50%;
+            box-shadow: 0 0 90px #ffaa00, 0 0 180px #ff6600, 0 0 270px #ff4400, 0 0 360px #ff3300, 0 0 450px #ff2200;
+            z-index: 10;
+            animation: sunPulse 2s ease-in-out infinite alternate;
+        }
+        @keyframes sunPulse {
+            0% { box-shadow: 0 0 90px #ffaa00, 0 0 180px #ff6600, 0 0 270px #ff4400, 0 0 360px #ff3300, 0 0 450px #ff2200; }
+            100% { box-shadow: 0 0 120px #ffbb33, 0 0 225px #ff8833, 0 0 330px #ff5533, 0 0 420px #ff4422, 0 0 525px #ff3311; }
+        }
+
+        .orbit {
+            position: absolute; top: 50%; left: 50%;
+            border: 1px solid rgba(255,255,255,0.15); border-radius: 50%;
+            transform: translate(-50%,-50%); pointer-events: none;
+        }
+        .planet-spin { position: absolute; top: 50%; left: 50%; width: 0; height: 0; }
+        .planet { position: absolute; border-radius: 50%; transform: translate(-50%,-50%); }
+        .planet-name {
+            position: absolute; width: 90px; text-align: center;
+            color: rgba(255,255,255,0.8); font-size: 15px;
+            font-family: 'Arial', sans-serif; pointer-events: none;
+            white-space: nowrap; transform: translate(-50%,-50%);
+            text-shadow: 0 0 8px rgba(255,255,255,0.5);
+        }
+
+        .orbit-mercury { width: 150px; height: 150px; }
+        .spin-mercury { animation: spin 3s linear infinite; }
+        .planet-mercury { width: 12px; height: 12px; background: radial-gradient(circle at 30% 30%, #d4d4d4, #8a8a8a); top: 75px; left: 0; }
+
+        .orbit-venus { width: 225px; height: 225px; }
+        .spin-venus { animation: spin 5s linear infinite; }
+        .planet-venus { width: 21px; height: 21px; background: radial-gradient(circle at 30% 30%, #f5d57a, #c4953a); top: 112px; left: 0; }
+
+        .orbit-earth { width: 315px; height: 315px; }
+        .spin-earth { animation: spin 8s linear infinite; }
+        .planet-earth { width: 22px; height: 22px; background: radial-gradient(circle at 30% 30%, #6bb5ff, #2266cc); top: 158px; left: 0; }
+        .moon-orbit { position: absolute; width: 42px; height: 42px; border-radius: 50%; animation: moonSpin 2.5s linear infinite; }
+        .moon { position: absolute; width: 6px; height: 6px; background: #ddd; border-radius: 50%; top: 21px; left: 0; transform: translate(-50%,-50%); }
+        @keyframes moonSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        .orbit-mars { width: 420px; height: 420px; }
+        .spin-mars { animation: spin 12s linear infinite; }
+        .planet-mars { width: 16px; height: 16px; background: radial-gradient(circle at 30% 30%, #e8784a, #993311); top: 210px; left: 0; }
+
+        .orbit-jupiter { width: 570px; height: 570px; }
+        .spin-jupiter { animation: spin 20s linear infinite; }
+        .planet-jupiter { width: 60px; height: 60px; background: radial-gradient(circle at 40% 40%, #f0d8a8, #c8a45c, #a08048); top: 285px; left: 0; box-shadow: 0 0 12px rgba(200,164,92,0.5); }
+        .jupiter-stripes { position: absolute; width: 100%; height: 100%; border-radius: 50%; background: repeating-linear-gradient(0deg, transparent, transparent 9%, rgba(180,130,60,0.4) 9%, rgba(180,130,60,0.4) 13%); top: 0; left: 0; }
+
+        .orbit-saturn { width: 720px; height: 720px; }
+        .spin-saturn { animation: spin 30s linear infinite; }
+        .planet-saturn { width: 51px; height: 51px; background: radial-gradient(circle at 40% 40%, #f5e6b8, #d4b870); top: 360px; left: 0; }
+        .saturn-ring { position: absolute; width: 80px; height: 24px; border-radius: 50%; border: 6px solid rgba(210,180,120,0.7); border-top-color: rgba(210,180,120,0.3); border-bottom-color: rgba(180,150,100,0.9); top: 50%; left: 50%; transform: translate(-50%,-50%) rotateX(75deg); pointer-events: none; }
+
+        .orbit-uranus { width: 855px; height: 855px; }
+        .spin-uranus { animation: spin 45s linear infinite; }
+        .planet-uranus { width: 39px; height: 39px; background: radial-gradient(circle at 40% 40%, #c8f0f8, #5bbbd4); top: 428px; left: 0; }
+
+        .orbit-neptune { width: 975px; height: 975px; }
+        .spin-neptune { animation: spin 60s linear infinite; }
+        .planet-neptune { width: 37px; height: 37px; background: radial-gradient(circle at 40% 40%, #6088ff, #2233aa); top: 488px; left: 0; }
+
+        .orbit-pluto { width: 1080px; height: 1080px; }
+        .spin-pluto { animation: spin 80s linear infinite; }
+        .planet-pluto { width: 10px; height: 10px; background: radial-gradient(circle at 30% 30%, #e8d8c8, #9a8a78); top: 540px; left: 0; }
+
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        .shooting-star {
+            position: fixed; width: 2px; height: 2px;
+            background: white; border-radius: 50%;
+            z-index: 2; pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="stars-canvas"></canvas>
+
+    <div class="solar-system">
+        <div class="sun"></div>
+
+        <div class="orbit orbit-mercury"></div>
+        <div class="planet-spin spin-mercury">
+            <div class="planet planet-mercury"></div>
+            <span class="planet-name" style="margin-left:6px;margin-top:12px;">水星</span>
+        </div>
+
+        <div class="orbit orbit-venus"></div>
+        <div class="planet-spin spin-venus">
+            <div class="planet planet-venus"></div>
+            <span class="planet-name" style="margin-left:10px;margin-top:18px;">金星</span>
+        </div>
+
+        <div class="orbit orbit-earth"></div>
+        <div class="planet-spin spin-earth">
+            <div class="planet planet-earth"><div class="moon-orbit"><div class="moon"></div></div></div>
+            <span class="planet-name" style="margin-left:12px;margin-top:18px;">地球</span>
+        </div>
+
+        <div class="orbit orbit-mars"></div>
+        <div class="planet-spin spin-mars">
+            <div class="planet planet-mars"></div>
+            <span class="planet-name" style="margin-left:9px;margin-top:15px;">火星</span>
+        </div>
+
+        <div class="orbit orbit-jupiter"></div>
+        <div class="planet-spin spin-jupiter">
+            <div class="planet planet-jupiter"><div class="jupiter-stripes"></div></div>
+            <span class="planet-name" style="margin-left:30px;margin-top:36px;font-size:17px;font-weight:bold;">木星</span>
+        </div>
+
+        <div class="orbit orbit-saturn"></div>
+        <div class="planet-spin spin-saturn">
+            <div class="planet planet-saturn"><div class="saturn-ring"></div></div>
+            <span class="planet-name" style="margin-left:25px;margin-top:30px;">土星</span>
+        </div>
+
+        <div class="orbit orbit-uranus"></div>
+        <div class="planet-spin spin-uranus">
+            <div class="planet planet-uranus"></div>
+            <span class="planet-name" style="margin-left:20px;margin-top:24px;">天王星</span>
+        </div>
+
+        <div class="orbit orbit-neptune"></div>
+        <div class="planet-spin spin-neptune">
+            <div class="planet planet-neptune"></div>
+            <span class="planet-name" style="margin-left:20px;margin-top:24px;">海王星</span>
+        </div>
+
+        <div class="orbit orbit-pluto"></div>
+        <div class="planet-spin spin-pluto">
+            <div class="planet planet-pluto"></div>
+            <span class="planet-name" style="margin-left:6px;margin-top:10px;">冥王星</span>
+        </div>
+    </div>
+
+    <!-- 密码弹窗（必须与 bridge.js 中的 ID 一致） -->
+    <div id="pwd-overlay" class="pwd-overlay" style="display:none">
+        <div class="pwd-dialog">
+            <h2 id="pwd-title">🔒 程序已锁定</h2>
+            <p id="pwd-msg">请输入密码以关闭程序</p>
+            <div id="pwd-info" class="pwd-info">
+                <div class="pwd-info-section">
+                    <strong>⌨ 快捷键</strong>
+                    <ul>
+                        <li><code>Alt+W</code> — 关闭窗口（需密码验证）</li>
+                        <li><code>Alt+Tab</code> / <code>Alt+F4</code> / <code>Alt+Esc</code> — 已禁用</li>
+                        <li><code>Ctrl+Esc</code> / <code>Ctrl+Shift+Esc</code> — 已禁用</li>
+                    </ul>
+                </div>
+                <div class="pwd-info-section">
+                    <strong>🔑 按键映射（操作系统级快捷键已禁用）</strong>
+                    <ul>
+                        <li><code>Super_L</code> / <code>Super_R</code> → <code>Win</code> — Win 键被拦截</li>
+                        <li><code>Alt_L</code> / <code>Alt_R</code> → <code>Alt</code> — Alt 被拦截</li>
+                        <li><code>Control_L</code> / <code>Control_R</code> → <code>Ctrl</code> — Ctrl 被拦截</li>
+                    </ul>
+                </div>
+            </div>
+            <input id="pwd-input" type="password" placeholder="输入密码" autofocus />
+            <label class="pwd-remember"><input id="pwd-remember-cb" type="checkbox" /> 记住密码</label>
+            <p id="pwd-error" class="pwd-error" style="display:none">密码错误，请重试</p>
+            <div class="pwd-btns">
+                <button id="pwd-confirm" class="pwd-btn primary">确认</button>
+                <button id="pwd-cancel" class="pwd-btn">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 共享桥接逻辑 -->
+    <script src="../bridge.js"></script>
+    <!-- 动画初始化 -->
+    <script>
+        // 初始化桥接（不弹密码框，启动动画）
+        initBridge({ ready: startAnimation });
+
+        // ======================== 太阳系动画 ========================
+        function startAnimation() {
+            var canvas = document.getElementById('stars-canvas');
+            var ctx = canvas.getContext('2d');
+            var W, H;
+            var stars = [];
+            var meteors = [];
+            var N = 1200;
+            var tick = 0;
+
+            function resize() {
+                var dpr = window.devicePixelRatio || 1;
+                W = window.innerWidth;
+                H = window.innerHeight;
+                canvas.width = W * dpr;
+                canvas.height = H * dpr;
+                canvas.style.width = W + 'px';
+                canvas.style.height = H + 'px';
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            }
+
+            function Star(init) {
+                this.x = Math.random() * W;
+                this.y = init ? Math.random() * H : -5;
+                var r = Math.random();
+                if (r < 0.01) this.r = 4.5;
+                else if (r < 0.05) this.r = 3;
+                else if (r < 0.20) this.r = 2;
+                else this.r = 1.5;
+                var cr = Math.random();
+                if (cr < 0.005) this.color = '200,210,255';
+                else if (cr < 0.03) this.color = '220,230,255';
+                else if (cr < 0.12) this.color = '255,248,235';
+                else if (cr < 0.20) this.color = '255,230,200';
+                else this.color = '255,253,245';
+                this.a = this.ba = 0.35 + Math.random() * 0.65;
+                this.p1 = Math.random() * Math.PI * 2;
+                this.f1 = 0.004 + Math.random() * 0.025;
+                this.m1 = 0.04 + Math.random() * 0.16;
+                this.p2 = Math.random() * Math.PI * 2;
+                this.f2 = this.f1 * (2.3 + Math.random() * 4);
+                this.m2 = this.m1 * 0.45;
+            }
+            Star.prototype.update = function(t) {
+                this.a = this.ba + Math.sin(t * this.f1 + this.p1) * this.m1 + Math.sin(t * this.f2 + this.p2) * this.m2;
+                this.a = Math.max(0.05, Math.min(1, this.a));
+            };
+            Star.prototype.draw = function() {
+                ctx.fillStyle = 'rgba(' + this.color + ',' + this.a.toFixed(2) + ')';
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2); ctx.fill();
+            };
+
+            function BrightStar() { Star.call(this); this.r = 3 + Math.random() * 3; this.ba = 0.7 + Math.random() * 0.3; this.a = this.ba; this.glowR = this.r * 2.5; }
+            BrightStar.prototype = Object.create(Star.prototype);
+            BrightStar.prototype.draw = function() {
+                var g = ctx.createRadialGradient(this.x, this.y, this.r * 0.3, this.x, this.y, this.glowR);
+                g.addColorStop(0, 'rgba(' + this.color + ',' + (this.a * 0.55).toFixed(2) + ')');
+                g.addColorStop(1, 'rgba(255,255,255,0)');
+                ctx.fillStyle = g; ctx.beginPath(); ctx.arc(this.x, this.y, this.glowR, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = 'rgba(' + this.color + ',' + this.a.toFixed(2) + ')';
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2); ctx.fill();
+            };
+
+            function Meteor(init) {
+                this.x = Math.random() * W * 0.7;
+                this.y = init ? Math.random() * H * 0.3 : -15;
+                this.len = 60 + Math.random() * 80;
+                this.spd = 5 + Math.random() * 6;
+                this.ang = 0.6 + Math.random() * 0.7;
+                this.life = 0;
+                this.max = 35 + Math.random() * 40;
+                this.a = 0;
+                this.vx = Math.cos(this.ang) * this.spd;
+                this.vy = Math.sin(this.ang) * this.spd;
+            }
+            Meteor.prototype.update = function() {
+                this.x += this.vx; this.y += this.vy; this.life++;
+                if (this.life < 5) this.a = this.life / 5;
+                else if (this.life > this.max - 10) this.a = Math.max(0, (this.max - this.life) / 10);
+                else this.a = 1;
+                if (this.life >= this.max || this.x > W + 150 || this.y > H + 150) { this.x = Math.random() * W * 0.7; this.y = -15; this.life = 0; this.a = 0; this.vx = Math.cos(this.ang) * this.spd; this.vy = Math.sin(this.ang) * this.spd; }
+            };
+            Meteor.prototype.draw = function() {
+                if (this.a <= 0) return;
+                var tx = this.x - Math.cos(this.ang) * this.len;
+                var ty = this.y - Math.sin(this.ang) * this.len;
+                var grd = ctx.createLinearGradient(this.x, this.y, tx, ty);
+                grd.addColorStop(0, 'rgba(255,255,255,' + this.a + ')');
+                grd.addColorStop(1, 'rgba(255,255,255,0)');
+                ctx.strokeStyle = grd; ctx.lineWidth = 1.8;
+                ctx.beginPath(); ctx.moveTo(this.x, this.y); ctx.lineTo(tx, ty); ctx.stroke();
+                ctx.fillStyle = 'rgba(255,255,255,' + this.a + ')';
+                ctx.beginPath(); ctx.arc(this.x, this.y, 1.8, 0, Math.PI * 2); ctx.fill();
+            };
+
+            function initStars() {
+                stars.length = 0;
+                for (var i = 0; i < N; i++) stars.push(i < N * 0.03 ? new BrightStar(true) : new Star(true));
+            }
+
+            resize();
+            initStars();
+
+            function loop() {
+                tick++;
+                ctx.clearRect(0, 0, W, H);
+                for (var i = 0; i < stars.length; i++) { stars[i].update(tick); stars[i].draw(); }
+                if (meteors.length < 3 && Math.random() < 0.004) meteors.push(new Meteor(true));
+                for (var j = meteors.length - 1; j >= 0; j--) { meteors[j].update(); meteors[j].draw(); }
+                requestAnimationFrame(loop);
+            }
+            loop();
+
+            window.addEventListener('resize', function() { resize(); initStars(); });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebToDesktop 效果启动器</title>
+    <link rel="stylesheet" href="bridge.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { user-select: none; -webkit-user-select: none; }
+        body {
+            width: 100vw; height: 100vh; overflow: hidden;
+            background: rgba(0,0,0,0.85);
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            font-family: 'Arial', sans-serif;
+            padding: 20px;
+        }
+        h1 {
+            color: #fff; font-size: 28px; margin-bottom: 8px;
+            letter-spacing: 2px;
+        }
+        .subtitle {
+            color: rgba(255,255,255,0.4); font-size: 14px;
+            margin-bottom: 32px;
+        }
+        .effect-grid {
+            display: flex; flex-wrap: wrap; gap: 16px;
+            justify-content: center; max-width: 600px;
+        }
+        .effect-card {
+            width: 260px; padding: 24px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            text-decoration: none; color: #fff;
+            transition: background 0.15s, border-color 0.15s;
+            cursor: pointer;
+        }
+        .effect-card:hover {
+            background: rgba(255,255,255,0.08);
+            border-color: rgba(255,255,255,0.25);
+        }
+        .effect-card h3 { font-size: 18px; margin-bottom: 6px; }
+        .effect-card p { font-size: 13px; color: rgba(255,255,255,0.5); line-height: 1.5; }
+        .effect-card .tag {
+            display: inline-block; padding: 2px 8px;
+            border-radius: 4px; font-size: 11px;
+            background: rgba(255,255,255,0.08);
+            color: rgba(255,255,255,0.4);
+            margin-top: 10px;
+        }
+
+        /* 星空画布 */
+        #stars-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+            /* 画布本身透明，星星叠加在页面底层 */
+        }
+
+        /* 太阳系容器 */
+        .solar-system {
+            position: relative;
+            width: 1200px;
+            height: 1200px;
+            z-index: 1;
+        }
+
+        /* 太阳 */
+        .sun {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 120px;
+            height: 120px;
+            margin-left: -60px;
+            margin-top: -60px;
+            background: radial-gradient(circle, #fff7a0 0%, #ffcc00 30%, #ff8800 60%, #ff4400 100%);
+            border-radius: 50%;
+            box-shadow:
+                0 0 90px #ffaa00,
+                0 0 180px #ff6600,
+                0 0 270px #ff4400,
+                0 0 360px #ff3300,
+                0 0 450px #ff2200;
+            z-index: 10;
+            animation: sunPulse 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes sunPulse {
+            0% {
+                box-shadow: 0 0 90px #ffaa00, 0 0 180px #ff6600, 0 0 270px #ff4400, 0 0 360px #ff3300, 0 0 450px #ff2200;
+            }
+            100% {
+                box-shadow: 0 0 120px #ffbb33, 0 0 225px #ff8833, 0 0 330px #ff5533, 0 0 420px #ff4422, 0 0 525px #ff3311;
+            }
+        }
+
+        /* 轨道 */
+        .orbit {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+
+        /* 每颗行星的轨道旋转层 */
+        .planet-spin {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+        }
+
+        /* 行星通用样式 */
+        .planet {
+            position: absolute;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        /* 行星名字标签 */
+        .planet-name {
+            position: absolute;
+            width: 90px;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 15px;
+            font-family: 'Arial', sans-serif;
+            pointer-events: none;
+            white-space: nowrap;
+            transform: translate(-50%, -50%);
+            text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+        }
+
+        /* ========== 水星 ========== */
+        .orbit-mercury { width: 150px; height: 150px; }
+        .spin-mercury { animation: spin 3s linear infinite; }
+        .planet-mercury {
+            width: 12px;
+            height: 12px;
+            background: radial-gradient(circle at 30% 30%, #d4d4d4, #8a8a8a);
+            top: 75px;
+            left: 0;
+        }
+
+        /* ========== 金星 ========== */
+        .orbit-venus { width: 225px; height: 225px; }
+        .spin-venus { animation: spin 5s linear infinite; }
+        .planet-venus {
+            width: 21px;
+            height: 21px;
+            background: radial-gradient(circle at 30% 30%, #f5d57a, #c4953a);
+            top: 112px;
+            left: 0;
+        }
+
+        /* ========== 地球 ========== */
+        .orbit-earth { width: 315px; height: 315px; }
+        .spin-earth { animation: spin 8s linear infinite; }
+        .planet-earth {
+            width: 22px;
+            height: 22px;
+            background: radial-gradient(circle at 30% 30%, #6bb5ff, #2266cc);
+            top: 158px;
+            left: 0;
+        }
+
+        /* 月球 */
+        .moon-orbit {
+            position: absolute;
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            animation: moonSpin 2.5s linear infinite;
+        }
+        .moon {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            background: #ddd;
+            border-radius: 50%;
+            top: 21px;
+            left: 0;
+            transform: translate(-50%, -50%);
+        }
+
+        @keyframes moonSpin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* ========== 火星 ========== */
+        .orbit-mars { width: 420px; height: 420px; }
+        .spin-mars { animation: spin 12s linear infinite; }
+        .planet-mars {
+            width: 16px;
+            height: 16px;
+            background: radial-gradient(circle at 30% 30%, #e8784a, #993311);
+            top: 210px;
+            left: 0;
+        }
+
+        /* ========== 木星 ========== */
+        .orbit-jupiter { width: 570px; height: 570px; }
+        .spin-jupiter { animation: spin 20s linear infinite; }
+        .planet-jupiter {
+            width: 60px;
+            height: 60px;
+            background: radial-gradient(circle at 40% 40%, #f0d8a8, #c8a45c, #a08048);
+            top: 285px;
+            left: 0;
+            box-shadow: 0 0 12px rgba(200, 164, 92, 0.5);
+        }
+        /* 木星条纹 */
+        .jupiter-stripes {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 9%,
+                rgba(180, 130, 60, 0.4) 9%,
+                rgba(180, 130, 60, 0.4) 13%
+            );
+            top: 0;
+            left: 0;
+        }
+
+        /* ========== 土星 ========== */
+        .orbit-saturn { width: 720px; height: 720px; }
+        .spin-saturn { animation: spin 30s linear infinite; }
+        .planet-saturn {
+            width: 51px;
+            height: 51px;
+            background: radial-gradient(circle at 40% 40%, #f5e6b8, #d4b870);
+            top: 360px;
+            left: 0;
+        }
+        /* 土星光环 */
+        .saturn-ring {
+            position: absolute;
+            width: 80px;
+            height: 24px;
+            border-radius: 50%;
+            border: 6px solid rgba(210, 180, 120, 0.7);
+            border-top-color: rgba(210, 180, 120, 0.3);
+            border-bottom-color: rgba(180, 150, 100, 0.9);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotateX(75deg);
+            pointer-events: none;
+        }
+
+        /* ========== 天王星 ========== */
+        .orbit-uranus { width: 855px; height: 855px; }
+        .spin-uranus { animation: spin 45s linear infinite; }
+        .planet-uranus {
+            width: 39px;
+            height: 39px;
+            background: radial-gradient(circle at 40% 40%, #c8f0f8, #5bbbd4);
+            top: 428px;
+            left: 0;
+        }
+
+        /* ========== 海王星 ========== */
+        .orbit-neptune { width: 975px; height: 975px; }
+        .spin-neptune { animation: spin 60s linear infinite; }
+        .planet-neptune {
+            width: 37px;
+            height: 37px;
+            background: radial-gradient(circle at 40% 40%, #6088ff, #2233aa);
+            top: 488px;
+            left: 0;
+        }
+
+        /* ========== 冥王星 ========== */
+        .orbit-pluto { width: 1080px; height: 1080px; }
+        .spin-pluto { animation: spin 80s linear infinite; }
+        .planet-pluto {
+            width: 10px;
+            height: 10px;
+            background: radial-gradient(circle at 30% 30%, #e8d8c8, #9a8a78);
+            top: 540px;
+            left: 0;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* 流星 */
+        .shooting-star {
+            position: fixed;
+            width: 2px;
+            height: 2px;
+            background: white;
+            border-radius: 50%;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        /* ———— 密码保护弹窗 ———— */
+        .pwd-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.75);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            pointer-events: auto;
+            cursor: auto;
+        }
+        .pwd-dialog {
+            background: #1a1a2e;
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 16px;
+            padding: 36px 40px;
+            width: 460px;
+            max-width: 92vw;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            pointer-events: auto;
+            cursor: auto;
+        }
+        .pwd-info {
+            margin: 12px 0 16px;
+            padding: 12px 16px;
+            background: rgba(255,255,255,0.04);
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        .pwd-info-section {
+            margin-bottom: 10px;
+        }
+        .pwd-info-section:last-child { margin-bottom: 0; }
+        .pwd-info-section strong {
+            display: block;
+            font-size: 12px;
+            color: rgba(255,255,255,0.5);
+            margin-bottom: 4px;
+        }
+        .pwd-info-section ul {
+            margin: 0;
+            padding: 0 0 0 16px;
+            list-style: none;
+        }
+        .pwd-info-section li {
+            font-size: 12px;
+            color: rgba(255,255,255,0.7);
+            line-height: 1.8;
+            position: relative;
+        }
+        .pwd-info-section li::before {
+            content: '•';
+            position: absolute;
+            left: -12px;
+            color: rgba(255,255,255,0.3);
+        }
+        .pwd-info-section code {
+            background: rgba(255,255,255,0.1);
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-size: 11px;
+            color: #6bb5ff;
+        }
+        .pwd-dialog h2 {
+            margin: 0 0 8px 0;
+            font-size: 20px;
+            color: #fff;
+            text-align: center;
+        }
+        .pwd-dialog p {
+            margin: 0 0 20px 0;
+            font-size: 13px;
+            color: rgba(255,255,255,0.6);
+            text-align: center;
+        }
+        .pwd-dialog input[type="password"] {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            background: rgba(255,255,255,0.08);
+            color: #fff;
+            font-size: 15px;
+            outline: none;
+            box-sizing: border-box;
+            pointer-events: auto;
+            cursor: auto;
+        }
+        .pwd-dialog input[type="password"]:focus {
+            border-color: #6bb5ff;
+        }
+        .pwd-dialog input[type="password"]::placeholder {
+            color: rgba(255,255,255,0.3);
+        }
+        .pwd-error {
+            color: #ff6b6b !important;
+            font-size: 12px !important;
+            margin: 8px 0 0 0 !important;
+        }
+        .pwd-btns {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            pointer-events: auto;
+            cursor: auto;
+        }
+        .pwd-btn {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 8px;
+            background: rgba(255,255,255,0.06);
+            color: #fff;
+            font-size: 14px;
+            cursor: pointer;
+            pointer-events: auto;
+            transition: background 0.15s;
+        }
+        .pwd-btn:hover { background: rgba(255,255,255,0.12); }
+        .pwd-btn.primary {
+            background: #2266cc;
+            border-color: #2266cc;
+        }
+        .pwd-btn.primary:hover { background: #2a75e8; }
+        .pwd-remember {
+            display: flex; align-items: center; gap: 6px;
+            margin: 12px 0 0; font-size: 13px; color: rgba(255,255,255,0.5);
+            cursor: pointer; pointer-events: auto;
+        }
+        .pwd-remember input[type="checkbox"] {
+            width: 16px; height: 16px; cursor: pointer; pointer-events: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎨 WebToDesktop</h1>
+    <p class="subtitle">选择一个演示效果</p>
+
+    <div class="effect-grid">
+        <a class="effect-card" href="effects/solar-system.html">
+            <h3>🌌 太阳系行星</h3>
+            <p>九大行星环绕太阳运行，带星空背景和流星效果的沉浸式动画</p>
+            <span class="tag">Canvas 动画</span>
+        </a>
+        <a class="effect-card" href="effects/galaxy.html">
+            <h3>✨ 粒子星系</h3>
+            <p>彩色粒子在引力场中旋转变幻，鼠标移动产生扰动，粒子间距离近时连线形成星云</p>
+            <span class="tag">粒子系统</span>
+        </a>
+        <a class="effect-card" href="effects/aurora.html">
+            <h3>🌌 极光</h3>
+            <p>多层动态极光在夜空中流淌，星光闪烁，地面树木剪影，色彩变幻的极光帷幕</p>
+            <span class="tag">渐变着色</span>
+        </a>
+        <a class="effect-card" href="effects/matrix.html">
+            <h3>💚 矩阵数字雨</h3>
+            <p>经典绿色数字雨效果，日文假名 + ASCII 字符纵向坠落，头部高亮拖尾渐暗</p>
+            <span class="tag">经典复刻</span>
+        </a>
+    </div>
+
+    <div id="pwd-overlay" class="pwd-overlay" style="display:none">
+        <div class="pwd-dialog">
+            <h2 id="pwd-title">🔒 程序已锁定</h2>
+            <p id="pwd-msg">请输入密码以关闭程序</p>
+            <div id="pwd-info" class="pwd-info">
+                <div class="pwd-info-section">
+                    <strong>⌨ 快捷键</strong>
+                    <ul>
+                        <li><code>Alt+W</code> — 关闭窗口（需密码验证）</li>
+                        <li><code>Alt+Tab</code> / <code>Alt+F4</code> / <code>Alt+Esc</code> — 已禁用</li>
+                        <li><code>Ctrl+Esc</code> / <code>Ctrl+Shift+Esc</code> — 已禁用</li>
+                    </ul>
+                </div>
+                <div class="pwd-info-section">
+                    <strong>🔑 按键映射（操作系统级快捷键已禁用）</strong>
+                    <ul>
+                        <li><code>Super_L</code> / <code>Super_R</code> → <code>Win</code></li>
+                        <li><code>Alt_L</code> / <code>Alt_R</code> → <code>Alt</code></li>
+                        <li><code>Control_L</code> / <code>Control_R</code> → <code>Ctrl</code></li>
+                    </ul>
+                </div>
+            </div>
+            <input id="pwd-input" type="password" placeholder="输入密码" autofocus />
+            <label class="pwd-remember"><input id="pwd-remember-cb" type="checkbox" /> 记住密码</label>
+            <p id="pwd-error" class="pwd-error" style="display:none">密码错误，请重试</p>
+            <div class="pwd-btns">
+                <button id="pwd-confirm" class="pwd-btn primary">确认</button>
+                <button id="pwd-cancel" class="pwd-btn">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="bridge.js"></script>
+    <script>
+        initBridge({ showPwd: true });
+    </script>
+</body>
+</html>

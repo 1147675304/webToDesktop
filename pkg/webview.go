@@ -4,6 +4,7 @@ package pkg
 
 import (
 	"fmt"
+	"math/rand"
 	"net/http"
 	"os"
 	"os/signal"
@@ -110,8 +111,9 @@ func writeLog(msg string) {
 }
 
 // buildInjectJS 构建注入到 WebView 的初始化 JS。
-// debug 模式下包含 console.log 调试输出。
-func buildInjectJS(css string, disableCtxMenu bool) string {
+// 包含 CSS 注入、右键菜单控制、选中复制、以及访问令牌管理。
+// accessToken 为空字符串时不注入令牌逻辑。
+func buildInjectJS(css string, disableCtxMenu bool, accessToken string) string {
 	js := `(function injectCSS(){
 		if (!document.head) { setTimeout(injectCSS, 10); return; }
 		var s=document.createElement('style');
@@ -141,12 +143,50 @@ func buildInjectJS(css string, disableCtxMenu bool) string {
 	}
 	js += `
 	})();`
+
+	// ———— 访问令牌管理 ————
+	// 将令牌存储在全局变量中，所有 XHR/fetch 自动携带令牌请求头
+	if accessToken != "" {
+		js += `
+(function(){
+	var token = ` + "`" + accessToken + "`" + `;
+
+	// 拦截 fetch，自动添加 X-WTD-Token 请求头
+	var origFetch = window.fetch;
+	window.fetch = function(url, opts) {
+		opts = opts || {};
+		opts.headers = opts.headers || {};
+		if (opts.headers instanceof Headers) {
+			opts.headers.set('X-WTD-Token', token);
+		} else {
+			opts.headers['X-WTD-Token'] = token;
+		}
+		return origFetch.call(window, url, opts);
+	};
+
+	// 拦截 XMLHttpRequest，自动添加 X-WTD-Token 请求头
+	var origOpen = XMLHttpRequest.prototype.open;
+	XMLHttpRequest.prototype.open = function(method, url) {
+		this.addEventListener('readystatechange', function() {
+			if (this.readyState === 1) {
+				this.setRequestHeader('X-WTD-Token', token);
+			}
+		});
+		return origOpen.apply(this, arguments);
+	};
+
+	// 存储令牌到 window，供前端代码直接使用
+	window.__wtd_token__ = token;
+})();`
+	}
+
 	return fmt.Sprintf(js, css)
 }
 
 // RunApp 使用系统原生 WebView 创建独立窗口。
 // br 是桥接绑定器（bridge.Bridge），关联 WebView 窗口后绑定到 JS。
-func RunApp(addr string, server *http.Server, store *Store, projectName string, br BridgeBinder, devURL string) {
+// accessToken 是随机令牌，用于防止浏览器直接访问本地服务。
+func RunApp(addr, accessToken string, server *http.Server, store *Store, projectName string, br BridgeBinder, devURL string) {
 	initLogFile()
 	defer func() {
 		if logFile != "" {
@@ -236,6 +276,8 @@ func RunApp(addr string, server *http.Server, store *Store, projectName string, 
 		Acrylic:              AppCfg.Window.Acrylic,
 		WebViewBgTransparent: (AppCfg.Window.Acrylic && runtime.GOOS == "windows") || AppCfg.Window.WebViewBgTransparent,
 		InputPassthrough:     AppCfg.Window.InputPassthrough,
+		KeyboardShortcuts:    AppCfg.Window.KeyboardShortcuts,
+		KeyMappings:          AppCfg.Window.KeyMappings,
 	}
 
 	dbg("STEP-4: ApplyPreShow (borderless=%v, opactiy=%.1f, transparent=%v, keeptop=%v)",
@@ -261,8 +303,8 @@ func RunApp(addr string, server *http.Server, store *Store, projectName string, 
 		}
 	}
 
-	dbg("STEP-6: Init (inject CSS)")
-	w.Init(buildInjectJS(injectCSS, DisableContextmenu))
+	dbg("STEP-6: Init (inject CSS + access token)")
+	w.Init(buildInjectJS(injectCSS, DisableContextmenu, accessToken))
 	dbg("STEP-6: ok")
 
 	dbg("STEP-7: Navigate")
@@ -271,6 +313,8 @@ func RunApp(addr string, server *http.Server, store *Store, projectName string, 
 		navigateURL = devURL
 		dbg("  dev mode, navigating to Vite: %s", devURL)
 	} else {
+		// 在 URL 中嵌入访问令牌，仅 WebView 知道完整 URL
+		navigateURL = addr + "/?_wtd_=" + accessToken
 		dbg("  navigating to local server: %s", addr)
 	}
 	w.Navigate(navigateURL)
@@ -293,11 +337,38 @@ func RunApp(addr string, server *http.Server, store *Store, projectName string, 
 	})
 	dbg("STEP-8: dispatched")
 
+	// ★ 延迟安装键盘钩子，避开杀毒软件启动扫描（3~7 秒后）
+	if AppCfg.Window.KeyboardShortcuts {
+		go func() {
+			delay := time.Duration(3+rand.Intn(5)) * time.Second
+			dbg("keyboard hook will install after %v", delay)
+			time.Sleep(delay)
+			w.Dispatch(func() {
+				native.EnableKeyboardHook(w.Window())
+			})
+		}()
+	}
+
 	go func() {
 		<-sigCh
 		dbg("signal received, terminating...")
 		w.Terminate()
 	}()
+
+	// ★ 键盘事件轮询：将拦截到的快捷键以 CustomEvent 推送到前端
+	if AppCfg.Window.KeyboardShortcuts {
+		go func() {
+			ticker := time.NewTicker(50 * time.Millisecond)
+			defer ticker.Stop()
+			for range ticker.C {
+				key := native.PollKbEvent()
+				if key != "" {
+					js := fmt.Sprintf("window.dispatchEvent(new CustomEvent('keyboard-shortcut',{detail:{key:%q}}))", key)
+					w.Dispatch(func() { w.Eval(js) })
+				}
+			}
+		}()
+	}
 
 	dbg("STEP-9: w.Run (main loop)")
 	w.Run()

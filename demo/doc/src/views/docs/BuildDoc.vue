@@ -73,10 +73,11 @@
 ├── include_win/               ← Windows WebView2 头文件
 │   ├── EventToken.h
 │   └── WebView2.h
+├── myapp/                     ← 纯 HTML 示例（root）
 ├── demo/                      ← 前端示例项目
 │   ├── doc/                   ← WebToDesktop 文档（Vue 3）
 │   ├── serial/                ← 串口调试工具（Vue 3）
-│   └── myapp/                 ← 纯 HTML 示例
+│   └── xingxing/              ← 多效果锁屏动画（纯 HTML，按键映射+密码保护+效果切换）
 ├── assets/                    ← 构建资源
 ├── build/                     ← 构建产物输出
 ├── pkgconfig/                 ← pkg-config 配置
@@ -141,8 +142,22 @@ BUILD_TAGS=minimal             # 仅核心模块
         <tr><td><code>acrylic</code></td><td>bool</td><td>false</td><td>毛玻璃背景 (Win)</td></tr>
         <tr><td><code>round_corners</code></td><td>bool</td><td>true</td><td>圆角窗口 (Win11)</td></tr>
         <tr><td><code>dark_title_bar</code></td><td>bool</td><td>false</td><td>暗色标题栏 (Win10+)</td></tr>
+        <tr><td><code>keyboard_shortcuts</code></td><td>bool</td><td>false</td><td>拦截 Ctrl+S 和前端注册的快捷键（跨平台）</td></tr>
       </tbody>
     </table>
+
+    <h3>安全：阻止浏览器直接访问</h3>
+    <p class="hint">程序启动时会在 <code>127.0.0.1</code> 上开启一个随机端口的 HTTP 服务。为了防止同一台机器上的浏览器扫描端口后直接访问，每次启动时生成一个 32 字符的随机访问令牌，只有 WebView 知道完整 URL。</p>
+    <p class="hint">工作方式：</p>
+    <ul class="note-list">
+      <li>启动时生成随机令牌，注入到导航 URL：<code>http://127.0.0.1:PORT/?_wtd_=TOKEN</code></li>
+      <li>初始页面加载后，注入的 JS 自动读取令牌并存储</li>
+      <li>所有 <code>fetch</code> / <code>XMLHttpRequest</code> 自动携带 <code>X-WTD-Token</code> 请求头</li>
+      <li>服务器对每个请求校验令牌，无效则返回 <code>403 Forbidden</code></li>
+      <li>代理转发到远程服务器前自动剥离令牌头，防止泄露</li>
+      <li>令牌每次启动随机，重启后旧令牌失效</li>
+    </ul>
+    <p class="hint">此机制在内置文档站点的前端代码中已自动处理，开发者无需额外配置。如果在前端项目中需要手动获取令牌，可以通过 <code>window.__wtd_token__</code> 全局变量访问。</p>
 
     <h3>前置依赖</h3>
     <CodeBlock lang="bash"># Linux 构建依赖
@@ -166,4 +181,5 @@ import CodeBlock from '../../components/CodeBlock.vue'
 .api-table th, .api-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); }
 .api-table th { color: var(--text-secondary); font-weight: 500; font-size: 12px; }
 .api-table code { background: #eee; color: var(--text); padding: 1px 6px; border-radius: 4px; font-size: 11px; }
+.note-list { padding-left: 20px; font-size: 13px; color: var(--text-secondary); line-height: 2; }
 </style>

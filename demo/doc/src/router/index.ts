@@ -22,6 +22,7 @@ const router = createRouter({
         { path: 'build', name: 'docs-build', component: () => import('../views/docs/BuildDoc.vue') },
         { path: 'bridge', name: 'docs-bridge', component: () => import('../views/docs/BridgeDoc.vue') },
         { path: 'stream', name: 'docs-stream', component: () => import('../views/docs/StreamDoc.vue') },
+        { path: 'keyboard', name: 'docs-keyboard', component: () => import('../views/docs/KeyboardDoc.vue') },
       ],
     },
   ],

@@ -1,19 +1,19 @@
 [WTD] === runApp start ===
-[WTD] addr=http://127.0.0.1:40653, width=1366, height=768, borderless=true
+[WTD] addr=http://127.0.0.1:34769, width=1366, height=768, borderless=true
 [WTD] creating WebView...
 [WTD] STEP-1: webview.New
 [WTD] STEP-1: ok, WebView created
 [WTD] STEP-2: SetSize(1,1)
 [WTD] STEP-2: ok
 [WTD] STEP-3: SetTitle
-[WTD] STEP-3: ok, title=demo
+[WTD] STEP-3: ok, title=doc
 [WTD] STEP-4: ApplyPreShow (borderless=true, opactiy=1.0, transparent=true, keeptop=true)
 [WTD] STEP-4: ok
 [WTD] STEP-5: SetSize 1366x768
 [WTD] STEP-5: ok
 [WTD] setting up bridge...
 [WTD] bridge ready: window.__lhpanda__
-[WTD] STEP-6: Init (inject CSS)
+[WTD] STEP-6: Init (inject CSS + access token)
 [WTD] STEP-6: ok
 [WTD] STEP-7: Navigate
 [WTD]   dev mode, navigating to Vite: http://localhost:5173/

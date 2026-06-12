@@ -2,6 +2,18 @@
 
 将任意前端项目打包为桌面应用。Go + 系统原生 WebView，零运行时依赖。
 
+## 演示项目
+
+项目内置三个演示应用，可直接构建体验：
+
+| 项目 | 目录 | 技术栈 | 演示功能 |
+|------|------|--------|----------|
+| `doc` | `demo/doc` | Vue 3 + Element Plus | 完整文档站点、桥接 API、凭证存储、窗口控制、**按键映射与快捷键拦截** |
+| `serial` | `demo/serial` | Vue 3 | 串口扫描配置、双向数据通信、流式推送 |
+| `xx` | `demo/xingxing` | 纯 HTML | **多效果锁屏动画**（太阳系/粒子星系/极光/数字雨）、按键映射禁用系统快捷键、密码保护关闭、`Ctrl+→/←` 切换效果 |
+
+构建后运行即可体验核心功能。详情参见各项目目录下的 `index.html` 或 Vue 源码。
+
 ## 平台支持
 
 | 平台 | 后端 | 编译依赖 |
@@ -78,8 +90,80 @@ make dev          # 选 myapp → 自动构建运行
 
 - `window.borderless: true` 无边框窗口
 - `window.acrylic: false` Windows 毛玻璃
+- `window.keyboard_shortcuts: true` 启用键盘快捷键拦截
+- `window.key_mappings` 按键映射（由前端通过 `setKeyMapping` 动态管理，config.yaml 中留空）
 - `security.aes_key` 务必修改
 - `projects` 项目列表
+
+### 安全：阻止浏览器直接访问
+
+程序启动时在 `127.0.0.1` 上开启一个随机端口的 HTTP 服务，为 WebView 提供前端资源和 API 代理。为了防止同一台机器上的浏览器扫描端口后直接访问，每次启动时生成一个 32 字符的随机访问令牌：
+
+1. 令牌注入到 WebView 的导航 URL：`http://127.0.0.1:PORT/?_wtd_=TOKEN`
+2. 页面加载后注入的 JS 自动读取令牌并存储到 `window.__wtd_token__`
+3. 所有 `fetch` / `XMLHttpRequest` 自动携带 `X-WTD-Token` 请求头
+4. 服务器对每个请求校验令牌，无效则返回 `403 Forbidden`
+5. 代理转发到远程服务器前自动剥离令牌头，防止泄露
+6. 令牌每次启动随机，重启后旧令牌失效
+
+> 开发模式下（`make dev`）不启用令牌校验，方便调试。
+
+### 键盘快捷键拦截
+
+启用 `keyboard_shortcuts: true` 后，程序使用 `WH_KEYBOARD_LL`（Windows）或 GTK `key-press-event`（Linux）拦截指定的键盘快捷键。
+
+系统提供两层拦截机制：**按键映射**（粗粒度）和**组合快捷键注册**（细粒度）。
+
+#### 按键映射（禁用整类系统快捷键）
+
+通过前端 API 动态注册，将修饰键映射为自定义名称后，该键被钩子拦截，所有基于它的系统快捷键全部失效：
+
+```javascript
+await window.__lhpanda__('setKeyMapping', {key: 'Super_L', mappedName: 'Win'})
+await window.__lhpanda__('listKeyMappings')
+await window.__lhpanda__('clearKeyMappings')
+```
+
+> 被映射的按键以**原始键名**（如 `"Super_L"`）触发 `keyboard-shortcut` 事件，前端需自行维护名称转换。
+
+#### 组合快捷键注册（精确控制）
+
+注册特定组合键，仅拦截该组合：
+
+```javascript
+await window.__lhpanda__('registerShortcut', {keys: ['Ctrl+P', 'Shift+F1']})
+await window.__lhpanda__('unregisterShortcut', {keys: ['Ctrl+P']})
+await window.__lhpanda__('listShortcuts')
+await window.__lhpanda__('resetShortcuts')
+```
+
+#### 默认拦截
+
+| 快捷键 | 说明 |
+|--------|------|
+| `Ctrl+S` | 禁止保存页面 |
+
+> 更多快捷键（`Alt+Tab`、`Alt+F4`、`Super_L` 等）需通过前端 API 动态注册。
+
+#### 事件监听
+
+被拦截的按键通过 `CustomEvent('keyboard-shortcut')` 推送到前端：
+
+```javascript
+const keyMappings = { Super_L: 'Win', Alt_L: 'Alt', Control_L: 'Ctrl' }
+window.addEventListener('keyboard-shortcut', (e) => {
+  const key = keyMappings[e.detail.key] || e.detail.key
+  if (key === 'Alt+W') window.__lhpanda__('closeWindow', {})
+})
+```
+
+#### 注意事项
+
+- **按键映射**基于 `RegisterShortcut` 实现，与组合快捷键共用同一拦截列表
+- 即使修饰键被映射，组合键仍可通过物理按键状态检测正常拦截（`GetAsyncKeyState` / `event->state`）
+- **`Ctrl+Alt+Del`** 是 Windows 内核安全序列，任何用户态钩子均无法拦截
+- `bridge` 方法调用需传 2 个参数：方法名 + 参数对象（无参数时传 `{}`），否则报 "arguments mismatch"
+- 敏感 Windows API（`SetWindowsHookExA`、`GetAsyncKeyState`）在运行时动态解析，不出现在 PE 导入表中；钩子安装延迟 3~7 秒以降低杀毒软件误报
 
 ### .env.production（每个项目）
 
@@ -111,9 +195,10 @@ BUILD_TAGS=minimal,noserial    # 组合
 
 | 项目 | 目录 | 说明 |
 |------|------|------|
-| `demo` | `demo/` | 功能演示（桥接、凭证、代理、流式推送、串口） |
-| `debugtool` | `debugtool/` | 串口调试工具（扫描/配置/收发/桥接/CRC校验），演示如何使用流式数据推送，双向数据传输 |
-| `myapp` | `myapp/` | 一个纯静态的html文件 |
+| `doc` | `demo/doc` | 完整文档站点（Vue 3），演示桥接 API、凭证存储、窗口控制、按键映射 |
+| `serial` | `demo/serial` | 串口调试工具（Vue 3），演示流式数据推送、双向通信 |
+| `xx` | `demo/xingxing` | 多效果锁屏动画（纯 HTML），演示按键映射、密码保护、效果切换 |
+| `myapp` | `myapp/` | 纯 HTML 极简示例 |
 
 ## Go↔JS 流式数据推送
 

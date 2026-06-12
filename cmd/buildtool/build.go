@@ -38,6 +38,7 @@ func cmdBuildVue(project string) {
 
 // cmdBuild 构建单个平台
 func cmdBuild(platform, project string) error {
+	// 构建时传入项目名，用于输出文件名和持久化隔离
 	// 1. 解析项目配置
 	vueDir, err := findProject(project)
 	if err != nil {
@@ -112,7 +113,7 @@ func cmdBuild(platform, project string) error {
 	ldflags := fmt.Sprintf("-s -w -X 'main.BuildRemoteURL=%s' -X 'main.BuildProxyPrefixes=%s' -X 'main.BuildProjectName=%s' -X 'main.BuildSignHeader=%s' -X 'main.BuildDisableContextmenu=%s'",
 		remoteURL, proxyPrefixes, project, signHeader, disableCtxMenu)
 
-	if err := goBuild(platform, ldflags, buildTags); err != nil {
+	if err := goBuild(platform, ldflags, buildTags, project); err != nil {
 		return err
 	}
 
@@ -200,8 +201,8 @@ func copyDesktopIcons(envStr string) {
 }
 
 // goBuild 执行 go build
-func goBuild(platform, baseLdflags, buildTags string) error {
-	cfg := buildCfg(platform, baseLdflags, buildTags)
+func goBuild(platform, baseLdflags, buildTags, project string) error {
+	cfg := buildCfg(platform, baseLdflags, buildTags, project)
 	fmt.Println(cfg.desc)
 
 	if cfg.preSetup != nil {
@@ -239,13 +240,17 @@ type buildConfig struct {
 	preSetup  func() error
 }
 
-func buildCfg(platform, baseLdflags, buildTags string) buildConfig {
+func buildCfg(platform, baseLdflags, buildTags, project string) buildConfig {
+	name := project
+	if name == "" {
+		name = appName
+	}
 	switch platform {
 	case "linux":
 		arch := getTargetArch()
 		return buildConfig{
 			desc:      fmt.Sprintf("  目标: Linux %s (WebKitGTK)", arch),
-			output:    filepath.Join(outputDir, appName+"-linux-"+arch),
+			output:    filepath.Join(outputDir, name+"-linux-"+arch),
 			ldflags:   baseLdflags,
 			buildTags: buildTags,
 			env:       addPkgConfigPath("CGO_ENABLED=1", "GOARCH="+arch),
@@ -254,7 +259,7 @@ func buildCfg(platform, baseLdflags, buildTags string) buildConfig {
 	case "linux-amd64":
 		return buildConfig{
 			desc:      "  目标: Linux amd64 (WebKitGTK)",
-			output:    filepath.Join(outputDir, appName+"-linux-amd64"),
+			output:    filepath.Join(outputDir, name+"-linux-amd64"),
 			ldflags:   baseLdflags,
 			buildTags: buildTags,
 			env:       addPkgConfigPath("CGO_ENABLED=1", "GOARCH=amd64"),
@@ -263,7 +268,7 @@ func buildCfg(platform, baseLdflags, buildTags string) buildConfig {
 	case "linux-amd64-console":
 		return buildConfig{
 			desc:      "  目标: Linux amd64 + 控制台 (调试用)",
-			output:    filepath.Join(outputDir, appName+"-linux-amd64-console"),
+			output:    filepath.Join(outputDir, name+"-linux-amd64-console"),
 			ldflags:   baseLdflags + " -X 'github.com/lhpanda/webtodesktop/pkg.BuildDebug=true'",
 			buildTags: buildTags,
 			env:       addPkgConfigPath("CGO_ENABLED=1", "GOARCH=amd64"),
@@ -272,7 +277,7 @@ func buildCfg(platform, baseLdflags, buildTags string) buildConfig {
 	case "linux-arm64":
 		return buildConfig{
 			desc:      "  目标: Linux arm64 (WebKitGTK)",
-			output:    filepath.Join(outputDir, appName+"-linux-arm64"),
+			output:    filepath.Join(outputDir, name+"-linux-arm64"),
 			ldflags:   baseLdflags,
 			buildTags: buildTags,
 			env:       addPkgConfigPath("CGO_ENABLED=1", "GOARCH=arm64"),
@@ -281,7 +286,7 @@ func buildCfg(platform, baseLdflags, buildTags string) buildConfig {
 	case "linux-loong64":
 		return buildConfig{
 			desc:      "  目标: Linux loong64 / 龙芯 (WebKitGTK)",
-			output:    filepath.Join(outputDir, appName+"-linux-loong64"),
+			output:    filepath.Join(outputDir, name+"-linux-loong64"),
 			ldflags:   baseLdflags,
 			buildTags: buildTags,
 			env:       addPkgConfigPath("CGO_ENABLED=1", "GOARCH=loong64"),
@@ -290,7 +295,7 @@ func buildCfg(platform, baseLdflags, buildTags string) buildConfig {
 	case "windows":
 		return buildConfig{
 			desc:      "  目标: Windows (Edge WebView2)\n  要求: sudo apt install gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64",
-			output:    filepath.Join(outputDir, appName+".exe"),
+			output:    filepath.Join(outputDir, name+".exe"),
 			ldflags:   "-H windowsgui " + baseLdflags,
 			buildTags: buildTags,
 			env: []string{
@@ -304,7 +309,7 @@ func buildCfg(platform, baseLdflags, buildTags string) buildConfig {
 	case "windows-console":
 		return buildConfig{
 			desc:      "  目标: Windows + 控制台 (调试用)",
-			output:    filepath.Join(outputDir, appName+"-console.exe"),
+			output:    filepath.Join(outputDir, name+"-console.exe"),
 			ldflags:   baseLdflags + " -X 'github.com/lhpanda/webtodesktop/pkg.BuildDebug=true'",
 			buildTags: buildTags,
 			env: []string{
@@ -318,7 +323,7 @@ func buildCfg(platform, baseLdflags, buildTags string) buildConfig {
 	default: // current / current-console
 		cfg := buildConfig{
 			desc:      "  目标: 当前平台",
-			output:    filepath.Join(outputDir, appName),
+			output:    filepath.Join(outputDir, name),
 			ldflags:   baseLdflags,
 			buildTags: buildTags,
 			env:       addPkgConfigPath("CGO_ENABLED=1"),

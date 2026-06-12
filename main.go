@@ -26,7 +26,7 @@ var BuildProxyPrefixes string
 var BuildProjectName string
 var BuildSignHeader string         // 桌面端签名请求头名称（默认 X-Desktop-Signature）
 var BuildDisableContextmenu string // "true" 则禁用右键菜单
-var BuildDevURL string              // 开发模式 Vite URL，非空时 webview 直接导航到此
+var BuildDevURL string             // 开发模式 Vite URL，非空时 webview 直接导航到此
 
 func main() {
 	// 解析配置
@@ -57,7 +57,7 @@ func main() {
 	fmt.Printf("远程服务器: %s\n", remoteURL)
 	fmt.Printf("代理前缀: %v\n", proxyPrefixes)
 
-	store, err := pkg.NewStore()
+	store, err := pkg.NewStore(BuildProjectName)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "初始化本地存储失败: %v（凭证功能不可用）\n", err)
 	}
@@ -69,7 +69,7 @@ func main() {
 		}
 	}
 
-	addr, server, err := pkg.StartServer(staticFS, remoteURL, proxyPrefixes, store, BuildSignHeader)
+	addr, accessToken, server, err := pkg.StartServer(staticFS, remoteURL, proxyPrefixes, store, BuildSignHeader)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "启动服务失败: %v\n", err)
 		os.Exit(1)
@@ -83,7 +83,7 @@ func main() {
 
 	pkg.DisableContextmenu = BuildDisableContextmenu == "true"
 
-	pkg.RunApp(addr, server, store, BuildProjectName, br, BuildDevURL)
+	pkg.RunApp(addr, accessToken, server, store, BuildProjectName, br, BuildDevURL)
 }
 
 func parseProxyPrefixes(raw string) []string {

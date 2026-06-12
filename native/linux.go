@@ -13,13 +13,20 @@
 package native
 
 /*
-#cgo pkg-config: gtk+-3.0 webkit2gtk-4.0
+#cgo pkg-config: gtk+-3.0 webkit2gtk-4.0 x11
 
 #include <gtk/gtk.h>
 #include <gdk/gdk.h>
 #include <webkit2/webkit2.h>
 #include <string.h>
 #include <stdio.h>
+
+// X11 键盘钩子需要 GDK X11 后端支持
+#ifdef GDK_WINDOWING_X11
+#include <gdk/gdkx.h>
+#include <X11/Xlib.h>
+#include <X11/keysym.h>
+#endif
 
 // 确保窗口已实现（realize），创建底层 GdkWindow
 static void ensureRealized(GtkWindow *win) {
@@ -292,6 +299,249 @@ static void setWindowIcon(GtkWindow *win, const char *path) {
 		g_error_free(err);
 	}
 }
+
+// ———— 键盘快捷键拦截 ————
+// 通过 C 层静态数组管理，Go 侧通过 syncBlockedKeysToC 同步
+
+// C 层屏蔽键列表（由 Go 端 syncBlockedKeysToC 维护）
+#define MAX_BLOCKED_KEYS 128
+static char g_blockedKeys[MAX_BLOCKED_KEYS][128];
+static int g_blockedCount = 0;
+
+// 清空 C 层屏蔽键列表
+static void clearBlockedKeysC(void) {
+    g_blockedCount = 0;
+}
+
+// 向 C 层列表添加一条屏蔽键
+static void addBlockedKeyC(const char* key) {
+    if (g_blockedCount >= MAX_BLOCKED_KEYS) return;
+    strncpy(g_blockedKeys[g_blockedCount], key, 127);
+    g_blockedKeys[g_blockedCount][127] = '\0';
+    g_blockedCount++;
+}
+
+// 查询 C 层列表，返回 TRUE=应拦截
+static int isKeyBlockedC(const char* key) {
+    for (int i = 0; i < g_blockedCount; i++) {
+        if (strcmp(g_blockedKeys[i], key) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+// ———— 键盘事件通知（供前端监听） ————
+static volatile int g_kbEventCounter = 0;
+static char g_kbEventKey[128] = {0};
+
+int getKbEventCounterC(void) { return g_kbEventCounter; }
+
+void popKbEventC(char* buf, int bufsize) {
+    strncpy(buf, g_kbEventKey, bufsize - 1);
+    buf[bufsize - 1] = '\0';
+    g_kbEventKey[0] = '\0';
+    g_kbEventCounter = 0;
+}
+
+void pushKbEvent(const char* key) {
+    strncpy(g_kbEventKey, key, sizeof(g_kbEventKey) - 1);
+    g_kbEventKey[sizeof(g_kbEventKey) - 1] = '\0';
+    g_kbEventCounter++;
+}
+
+// 保存信号处理器 ID，用于卸载
+static guint g_kbSignalId = 0;
+
+// 构建按键描述字符串并查询 C 层屏蔽列表
+// 格式: "Alt+Tab", "Ctrl+Shift+S", "Super_L"
+// 返回 TRUE=应拦截, FALSE=放行
+static gboolean checkDynamicRegistry(guint keyval, guint state) {
+    char desc[128] = {0};
+
+    // 检测修饰键 (GDK 修饰符掩码)
+    if (state & GDK_CONTROL_MASK) {
+        strcat(desc, "Ctrl+");
+    }
+    if (state & GDK_MOD1_MASK) {
+        strcat(desc, "Alt+");
+    }
+    if (state & GDK_SHIFT_MASK) {
+        strcat(desc, "Shift+");
+    }
+    // Super 键 (GDK_SUPER_MASK) 不作为修饰符前缀，而是直接作为键名处理
+
+    // 按键名映射
+    switch (keyval) {
+        case GDK_KEY_Super_L:       strcat(desc, "Super_L"); break;
+        case GDK_KEY_Super_R:       strcat(desc, "Super_R"); break;
+        case GDK_KEY_Alt_L:
+        case GDK_KEY_Alt_R:         strcat(desc, "Alt_L"); break;
+        case GDK_KEY_Control_L:
+        case GDK_KEY_Control_R:     strcat(desc, "Control_L"); break;
+        case GDK_KEY_Shift_L:
+        case GDK_KEY_Shift_R:       strcat(desc, "Shift_L"); break;
+        case GDK_KEY_Tab:           strcat(desc, "Tab"); break;
+        case GDK_KEY_F4:            strcat(desc, "F4"); break;
+        case GDK_KEY_Escape:        strcat(desc, "Esc"); break;
+        case GDK_KEY_space:         strcat(desc, "Space"); break;
+        case GDK_KEY_Return:        strcat(desc, "Enter"); break;
+        case GDK_KEY_BackSpace:     strcat(desc, "Backspace"); break;
+        case GDK_KEY_Delete:        strcat(desc, "Delete"); break;
+        case GDK_KEY_Insert:        strcat(desc, "Insert"); break;
+        case GDK_KEY_Home:          strcat(desc, "Home"); break;
+        case GDK_KEY_End:           strcat(desc, "End"); break;
+        case GDK_KEY_Page_Up:       strcat(desc, "PageUp"); break;
+        case GDK_KEY_Page_Down:     strcat(desc, "PageDown"); break;
+        case GDK_KEY_Left:          strcat(desc, "Left"); break;
+        case GDK_KEY_Right:         strcat(desc, "Right"); break;
+        case GDK_KEY_Up:            strcat(desc, "Up"); break;
+        case GDK_KEY_Down:          strcat(desc, "Down"); break;
+        case GDK_KEY_F1:  case GDK_KEY_F2:  case GDK_KEY_F3:  case GDK_KEY_F5:
+        case GDK_KEY_F6:  case GDK_KEY_F7:  case GDK_KEY_F8:  case GDK_KEY_F9:
+        case GDK_KEY_F10: case GDK_KEY_F11: case GDK_KEY_F12:
+        {
+            char tmp[16];
+            sprintf(tmp, "F%d", (keyval - GDK_KEY_F1 + 1));
+            strcat(desc, tmp);
+            break;
+        }
+        default: {
+            // GDK 键值可能是 Unicode 字符
+            if (keyval >= 0x20 && keyval <= 0x7E) {
+                // 可打印 ASCII 字符
+                char tmp[2] = { (char)keyval, 0 };
+                strcat(desc, tmp);
+            } else {
+                // 用十六进制键值表示
+                char tmp[32];
+                sprintf(tmp, "KEY_0x%X", (unsigned int)keyval);
+                strcat(desc, tmp);
+            }
+            break;
+        }
+    }
+
+    // 查询 C 层屏蔽列表（纯 C 检查，不回调 Go）
+    if (isKeyBlockedC(desc)) {
+        pushKbEvent(desc);
+        return TRUE;
+    }
+    return FALSE;
+}
+
+// GTK 键盘事件处理器 — 拦截注册的快捷键
+static gboolean keyboardPressHandler(GtkWidget *widget, GdkEventKey *event, gpointer user_data) {
+	(void)(widget);
+	(void)(user_data);
+
+    guint kv = event->keyval;
+    guint st = event->state;
+
+    // Ctrl+S 总是拦截
+    if ((st & GDK_CONTROL_MASK) && kv == 's' && !(st & GDK_SHIFT_MASK)) {
+        pushKbEvent("Ctrl+S");
+        return TRUE;
+    }
+
+    // ★ 检查动态注册中心（支持前端自定义快捷键）
+    if (checkDynamicRegistry(kv, st)) {
+        return TRUE;
+    }
+
+	return FALSE; // 放行
+}
+
+// X11 全局按键拦截（解决 Alt+Tab 等被窗口管理器截获的问题）
+// 通过 XGrabKey 在窗口上设置被动抓取，使这些按键到达我们的窗口处理器
+static void x11GrabSystemKeys(GtkWindow *win) {
+#if defined(GDK_WINDOWING_X11)
+	GdkDisplay *display = gtk_widget_get_display(GTK_WIDGET(win));
+	if (!GDK_IS_X11_DISPLAY(display)) {
+		g_print("[native] not X11 display, skipping X11 grabs\n");
+		return;
+	}
+
+	Display *xdisplay = gdk_x11_display_get_xdisplay(display);
+	if (!xdisplay) return;
+
+	Window xwindow = gdk_x11_window_get_xid(gtk_widget_get_window(GTK_WIDGET(win)));
+	if (!xwindow) return;
+
+	// 获取按键码
+	KeyCode tabCode = XKeysymToKeycode(xdisplay, XK_Tab);
+	KeyCode f4Code  = XKeysymToKeycode(xdisplay, XK_F4);
+	KeyCode escCode = XKeysymToKeycode(xdisplay, XK_Escape);
+	KeyCode superL  = XKeysymToKeycode(xdisplay, XK_Super_L);
+	KeyCode superR  = XKeysymToKeycode(xdisplay, XK_Super_R);
+
+	// 在窗口上拦截 Alt+Tab, Alt+F4, Alt+Esc
+	// 当窗口拥有焦点时，这些按键不会传递给窗口管理器
+	XGrabKey(xdisplay, tabCode, Mod1Mask, xwindow, False, GrabModeAsync, GrabModeAsync);
+	XGrabKey(xdisplay, f4Code,  Mod1Mask, xwindow, False, GrabModeAsync, GrabModeAsync);
+	XGrabKey(xdisplay, escCode, Mod1Mask, xwindow, False, GrabModeAsync, GrabModeAsync);
+
+	// 在根窗口上全局拦截 Super 键（任意修饰符）
+	// 使其无论焦点在哪个窗口都无法触发系统菜单
+	Window root = DefaultRootWindow(xdisplay);
+	XGrabKey(xdisplay, superL, AnyModifier, root, False, GrabModeAsync, GrabModeAsync);
+	XGrabKey(xdisplay, superR, AnyModifier, root, False, GrabModeAsync, GrabModeAsync);
+
+	XFlush(xdisplay);
+	g_print("[native] X11 game mode: grabbed system keys\n");
+#else
+	(void)(win);
+#endif
+}
+
+static void x11UngrabSystemKeys(GtkWindow *win) {
+#if defined(GDK_WINDOWING_X11)
+	GdkDisplay *display = gtk_widget_get_display(GTK_WIDGET(win));
+	if (!GDK_IS_X11_DISPLAY(display)) return;
+
+	Display *xdisplay = gdk_x11_display_get_xdisplay(display);
+	if (!xdisplay) return;
+
+	Window root = DefaultRootWindow(xdisplay);
+	XUngrabKey(xdisplay, AnyKey, AnyModifier, root);
+
+	Window xwindow = gdk_x11_window_get_xid(gtk_widget_get_window(GTK_WIDGET(win)));
+	if (xwindow) {
+		XUngrabKey(xdisplay, AnyKey, AnyModifier, xwindow);
+	}
+
+	XFlush(xdisplay);
+	g_print("[native] X11 game mode: released system keys\n");
+#else
+	(void)(win);
+#endif
+}
+
+// 启用键盘快捷键拦截 — 安装 GTK 按键拦截 + X11 全局拦截
+static void enableKeyboardHook(GtkWindow *win) {
+	if (g_kbSignalId != 0) return; // 已经启用
+
+	// 连接 GTK key-press-event 信号，拦截到达窗口的按键
+	g_kbSignalId = g_signal_connect(win, "key-press-event",
+		G_CALLBACK(keyboardPressHandler), NULL);
+
+	// X11 全局拦截（窗口管理器级别的快捷键）
+	x11GrabSystemKeys(win);
+
+	g_print("[native] keyboard hook enabled\n");
+}
+
+// 禁用键盘快捷键拦截 — 卸载所有按键拦截
+static void disableKeyboardHook(GtkWindow *win) {
+	if (g_kbSignalId != 0) {
+		g_signal_handler_disconnect(win, g_kbSignalId);
+		g_kbSignalId = 0;
+	}
+
+	x11UngrabSystemKeys(win);
+
+	g_print("[native] keyboard hook disabled\n");
+}
 */
 import "C"
 import (
@@ -348,6 +598,13 @@ func Apply(winPtr unsafe.Pointer, cfg WindowConfig) {
 	// 7. 输入穿透：false=捕获所有点击（显式设置全窗口输入形状）
 	if !cfg.InputPassthrough {
 		C.setInputShapeFull(win)
+	}
+
+	// 8. 键盘快捷键拦截（按键映射提前注册，钩子安装延迟到 webview.go 中执行）
+	if cfg.KeyboardShortcuts {
+		if len(cfg.KeyMappings) > 0 {
+			InitKeyMappings(cfg.KeyMappings)
+		}
 	}
 
 	// Acrylic/DarkTitleBar/RoundCorners 为 Windows 专属，Linux 忽略
@@ -479,4 +736,50 @@ func HasDisplay() bool {
 		return true
 	}
 	return false
+}
+
+// syncBlockedKeysToC 将 Go 注册表中的快捷键同步到 C 层静态数组。
+// keys 为 nil 时清空 C 层数组。
+func syncBlockedKeysToC(keys []string) {
+	C.clearBlockedKeysC()
+	for _, k := range keys {
+		cKey := C.CString(k)
+		C.addBlockedKeyC(cKey)
+		C.free(unsafe.Pointer(cKey))
+	}
+}
+
+// syncKeyMappingsToC — 按键映射已移除，保留为空桩避免编译错误
+func syncKeyMappingsToC(mappings map[string]string) {}
+
+// EnableKeyboardHook 安装 GTK 按键拦截 + X11 全局键盘抓取。
+// 在 w.Dispatch 回调中调用（需在 UI 线程）。
+func EnableKeyboardHook(winPtr unsafe.Pointer) {
+	if winPtr == nil {
+		return
+	}
+	// 初始化默认快捷键
+	InitDefaultBlockedShortcuts()
+	C.enableKeyboardHook((*C.GtkWindow)(winPtr))
+}
+
+// DisableKeyboardHook 卸载所有按键拦截，恢复系统快捷键。
+func DisableKeyboardHook(winPtr unsafe.Pointer) {
+	if winPtr == nil {
+		return
+	}
+	C.disableKeyboardHook((*C.GtkWindow)(winPtr))
+	ClearShortcuts()
+}
+
+// PollKbEvent 查询是否有被拦截的键盘事件。
+// 返回事件描述字符串，无事件时返回空字符串。
+// 每次调用仅返回最近一次事件（消费后重置）。
+func PollKbEvent() string {
+	if C.getKbEventCounterC() == 0 {
+		return ""
+	}
+	var buf [128]C.char
+	C.popKbEventC(&buf[0], 128)
+	return C.GoString(&buf[0])
 }

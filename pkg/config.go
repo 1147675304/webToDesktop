@@ -27,20 +27,22 @@ type SecurityConfig struct {
 }
 
 type WindowConfig struct {
-	Title                string  `yaml:"title"`
-	Width                int     `yaml:"width"`
-	Height               int     `yaml:"height"`
-	Fullscreen           bool    `yaml:"fullscreen"`
-	Maximized            bool    `yaml:"maximized"`
-	Borderless           bool    `yaml:"borderless"`
-	AlwaysOnTop          bool    `yaml:"always_on_top"`
-	Opacity              float64 `yaml:"opacity"`
-	WebViewBgTransparent bool    `yaml:"webview_bg_transparent"`
-	InputPassthrough     bool    `yaml:"input_passthrough"`
-	WindowPosition       string  `yaml:"window_position"`
-	DarkTitleBar         bool    `yaml:"dark_title_bar"`
-	RoundCorners         bool    `yaml:"round_corners"`
-	Acrylic              bool    `yaml:"acrylic"`
+	Title                string            `yaml:"title"`
+	Width                int               `yaml:"width"`
+	Height               int               `yaml:"height"`
+	Fullscreen           bool              `yaml:"fullscreen"`
+	Maximized            bool              `yaml:"maximized"`
+	Borderless           bool              `yaml:"borderless"`
+	AlwaysOnTop          bool              `yaml:"always_on_top"`
+	Opacity              float64           `yaml:"opacity"`
+	WebViewBgTransparent bool              `yaml:"webview_bg_transparent"`
+	InputPassthrough     bool              `yaml:"input_passthrough"`
+	WindowPosition       string            `yaml:"window_position"`
+	DarkTitleBar         bool              `yaml:"dark_title_bar"`
+	RoundCorners         bool              `yaml:"round_corners"`
+	Acrylic              bool              `yaml:"acrylic"`
+	KeyboardShortcuts    bool              `yaml:"keyboard_shortcuts"`
+	KeyMappings          map[string]string `yaml:"key_mappings"`
 }
 
 type ProjectConfig struct {
@@ -91,6 +93,7 @@ type WindowConfigData struct {
 }
 
 // UpdateAppWindowConfig 用持久化配置覆盖全局 AppCfg.Window。
+// 注意：KeyboardShortcuts 是构建时配置，不从此处覆盖。
 func UpdateAppWindowConfig(cfg *WindowConfigData) {
 	if cfg.Title != "" {
 		AppCfg.Window.Title = cfg.Title
@@ -108,4 +111,5 @@ func UpdateAppWindowConfig(cfg *WindowConfigData) {
 	AppCfg.Window.DarkTitleBar = cfg.DarkTitleBar
 	AppCfg.Window.RoundCorners = cfg.RoundCorners
 	AppCfg.Window.Acrylic = cfg.Acrylic
+	// KeyboardShortcuts 不从此处覆盖，保持 config.yaml 的值
 }

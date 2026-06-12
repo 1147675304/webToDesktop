@@ -198,7 +198,7 @@ func cmdDev(project string) {
 		os.MkdirAll(outputDir, 0755)
 		ldflags := fmt.Sprintf("-s -w -X 'main.BuildRemoteURL=%s' -X 'main.BuildProxyPrefixes=%s' -X 'main.BuildProjectName=%s' -X 'main.BuildDisableContextmenu=false'",
 			remoteURL, proxyPrefixes, project)
-		if err := goBuild("current", ldflags, ""); err != nil {
+		if err := goBuild("current", ldflags, "", project); err != nil {
 			fatalf("构建失败: %v", err)
 		}
 		fmt.Println()
@@ -308,7 +308,7 @@ func cmdDev(project string) {
 
 	ldflags := fmt.Sprintf("-s -w -X 'main.BuildRemoteURL=%s' -X 'main.BuildProxyPrefixes=%s' -X 'main.BuildProjectName=%s' -X 'main.BuildDisableContextmenu=false' -X 'main.BuildDevURL=%s'",
 		remoteURL, proxyPrefixes, project, viteURL)
-	if err := goBuild("current", ldflags, ""); err != nil {
+	if err := goBuild("current", ldflags, "", project); err != nil {
 		cleanup()
 		fatalf("构建失败: %v", err)
 	}
@@ -345,9 +345,15 @@ func detectDevPort(start, end int) string {
 
 // detectPM 根据锁文件检测包管理器（pnpm / yarn / bun / npm）
 func detectPM(dir string) string {
-	if fileExists(filepath.Join(dir, "pnpm-lock.yaml")) { return "pnpm" }
-	if fileExists(filepath.Join(dir, "yarn.lock")) { return "yarn" }
-	if fileExists(filepath.Join(dir, "bun.lockb")) || fileExists(filepath.Join(dir, "bun.lock")) { return "bun" }
+	if fileExists(filepath.Join(dir, "pnpm-lock.yaml")) {
+		return "pnpm"
+	}
+	if fileExists(filepath.Join(dir, "yarn.lock")) {
+		return "yarn"
+	}
+	if fileExists(filepath.Join(dir, "bun.lockb")) || fileExists(filepath.Join(dir, "bun.lock")) {
+		return "bun"
+	}
 	return "npm"
 }
 

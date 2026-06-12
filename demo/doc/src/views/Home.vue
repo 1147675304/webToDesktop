@@ -301,6 +301,52 @@ JS 侧:
       </section>
 
       <section class="card">
+        <h2><el-icon><Key /></el-icon> 键盘快捷键测试</h2>
+        <p class="card-desc">注册快捷键后按下，看看能否被拦截并收到 <code>keyboard-shortcut</code> 事件。</p>
+
+        <div class="btn-row">
+          <button class="btn primary" @click="regShortcut('Ctrl+P')">
+            <el-icon><Plus /></el-icon> 注册 Ctrl+P
+          </button>
+          <button class="btn primary" @click="regShortcut('Shift+F1')">
+            <el-icon><Plus /></el-icon> 注册 Shift+F1
+          </button>
+          <button class="btn primary" @click="regShortcut('Ctrl+Shift+S')">
+            <el-icon><Plus /></el-icon> 注册 Ctrl+Shift+S
+          </button>
+          <button class="btn danger" @click="clearAllShortcuts">
+            <el-icon><Delete /></el-icon> 清空所有
+          </button>
+        </div>
+
+        <div class="btn-row" style="margin-top:4px">
+          <input v-model="customKey" placeholder="输入自定义快捷键，如 Alt+F2"
+            style="flex:1;padding:8px 12px;border-radius:6px;border:1px solid var(--border)" />
+          <button class="btn primary" @click="regShortcut(customKey)" :disabled="!customKey.trim()">
+            <el-icon><Plus /></el-icon> 注册
+          </button>
+        </div>
+
+        <div v-if="registeredKeys.length" class="shortcut-list" style="margin:8px 0">
+          <span v-for="k in registeredKeys" :key="k" class="shortcut-tag">{{ k }}</span>
+        </div>
+
+        <div class="kb-event-log" ref="kbLogRef">
+          <div class="kb-log-header">
+            <span>拦截事件日志</span>
+            <button class="btn-sm" @click="kbEvents=[]" v-if="kbEvents.length">清空</button>
+          </div>
+          <div v-if="kbEvents.length" class="kb-log-entries">
+            <div v-for="(ev, i) in kbEvents" :key="i" class="kb-log-entry">
+              <span class="kb-log-time">{{ ev.time }}</span>
+              <span class="kb-log-key">{{ ev.key }}</span>
+            </div>
+          </div>
+          <p v-else class="empty-hint" style="margin:8px 0">尚无拦截事件，注册快捷键后按下测试</p>
+        </div>
+      </section>
+
+      <section class="card">
         <h2><el-icon><Box /></el-icon> 构建命令</h2>
         <div class="commands">
           <div class="cmd" v-for="c in commands" :key="c.cmd">
@@ -314,9 +360,9 @@ JS 侧:
 </template>
 
 <script setup>
-import { inject, ref, reactive, onMounted, onUnmounted } from 'vue'
+import { inject, ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
 import { useSerial } from '../composables/useSerial'
-import { Monitor, CircleCheckFilled, WarningFilled, Lock, Connection, Delete, Key, User, Sort, Cloudy, Box, Tickets, Crop, FullScreen, Close, Pointer, InfoFilled, UploadFilled, Bell, VideoPlay, VideoPause, Search, Promotion } from '@element-plus/icons-vue'
+import { Monitor, CircleCheckFilled, WarningFilled, Lock, Connection, Delete, Key, User, Sort, Cloudy, Box, Tickets, Crop, FullScreen, Close, Pointer, InfoFilled, UploadFilled, Bell, VideoPlay, VideoPause, Search, Promotion, Plus } from '@element-plus/icons-vue'
 
 const bridge = inject('bridge', {})
 const appInfo = inject('appInfo', ref({ platform: 'browser', arch: 'x64' }))
@@ -459,6 +505,64 @@ async function seekReadmeStream() {
   }
 }
 
+// ———— 键盘快捷键测试 ————
+const kbEvents = ref([])
+const registeredKeys = ref([])
+const customKey = ref('')
+const kbLogRef = ref(null)
+
+function handleKeyboardShortcut(e) {
+  const { key } = e.detail || {}
+  if (!key) return
+  const now = new Date()
+  const time = now.toLocaleTimeString() + '.' + String(now.getMilliseconds()).padStart(3, '0')
+  kbEvents.value.unshift({ time, key })
+  if (kbEvents.value.length > 50) kbEvents.value.length = 50
+  nextTick(() => {
+    if (kbLogRef.value) {
+      const el = kbLogRef.value.querySelector('.kb-log-entries')
+      if (el) el.scrollTop = 0
+    }
+  })
+}
+
+async function regShortcut(key) {
+  if (!key || !key.trim()) return
+  key = key.trim()
+  if (!window.__lhpanda__) { alert('当前为浏览器模式，快捷键拦截仅在桌面模式生效'); return }
+  try {
+    await bridge.registerShortcut({ keys: [key] })
+    const list = await bridge.listShortcuts()
+    registeredKeys.value = list?.shortcuts || []
+  } catch (e) {
+    console.error('注册失败:', e)
+  }
+}
+
+async function clearAllShortcuts() {
+  if (!window.__lhpanda__) return
+  try {
+    await bridge.clearShortcuts()
+    registeredKeys.value = []
+  } catch (e) {
+    console.error('清除失败:', e)
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keyboard-shortcut', handleKeyboardShortcut)
+  // 加载已注册的快捷键
+  if (window.__lhpanda__) {
+    bridge.listShortcuts().then(list => {
+      registeredKeys.value = list?.shortcuts || []
+    }).catch(() => {})
+  }
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keyboard-shortcut', handleKeyboardShortcut)
+})
+
 // 浏览器模拟：用预置文本模拟逐行推送
 function mockReadmeStream(startLine) {
   const allLines = [
@@ -553,6 +657,7 @@ async function toggleMaximize() { bridge.toggleMaximize().catch(() => {}) }
 async function toggleFullscreen() { bridge.toggleFullscreen().catch(() => {}) }
 async function closeWindow() { bridge.closeWindow().catch(() => {}) }
 
+// ———— 串口相关 ————
 async function testProxy() {
   if (!bridgeReady.value) {
     proxyResult.value = '浏览器模式下代理不可用\n\n请求路径: ' + apiPath.value + '\n代理前缀配置: /api/, /storage/\n\n实际在桌面端运行时会:\n1. 匹配代理前缀 → 转发到远程 API\n2. 注入 X-Credential-Username 请求头\n3. 替换 __DESKTOP_PWD__ 占位符\n4. 返回远程 API 的响应'
@@ -564,3 +669,32 @@ async function testProxy() {
   } catch (err) { proxyResult.value = '请求失败: ' + err.message }
 }
 </script>
+
+<style scoped>
+.shortcut-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.shortcut-tag {
+  display: inline-block; font-size: 11px; font-family: monospace;
+  padding: 2px 8px; border-radius: 4px;
+  background: var(--accent-dim); color: var(--accent); border: 1px solid transparent;
+}
+
+.kb-event-log {
+  border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
+  font-size: 13px;
+}
+.kb-log-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 10px; background: #00000006; border-bottom: 1px solid var(--border);
+  font-size: 12px; color: var(--text-secondary);
+}
+.kb-log-entries {
+  max-height: 200px; overflow-y: auto; padding: 4px 0;
+}
+.kb-log-entry {
+  display: flex; gap: 12px; padding: 3px 10px;
+  font-family: monospace; font-size: 12px;
+}
+.kb-log-entry:hover { background: #00000008; }
+.kb-log-time { color: var(--text-secondary); flex-shrink: 0; }
+.kb-log-key { color: var(--accent); font-weight: 500; }
+</style>

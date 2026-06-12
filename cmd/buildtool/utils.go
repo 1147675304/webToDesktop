@@ -75,10 +75,8 @@ func printBuildOutputs() {
 		return
 	}
 	for _, entry := range entries {
-		if strings.HasPrefix(entry.Name(), appName) {
-			info, _ := entry.Info()
-			fmt.Printf("  %s  %s\n", info.Mode(), filepath.Join(outputDir, entry.Name()))
-		}
+		info, _ := entry.Info()
+		fmt.Printf("  %s  %s\n", info.Mode(), filepath.Join(outputDir, entry.Name()))
 	}
 }
 

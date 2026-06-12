@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>矩阵数字雨</title>
+    <link rel="stylesheet" href="../bridge.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { cursor: none; user-select: none; -webkit-user-select: none; }
+        body {
+            width: 100vw; height: 100vh; overflow: hidden;
+            background: transparent; display: flex;
+            justify-content: center; align-items: center;
+            pointer-events: none;
+        }
+        canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; }
+    </style>
+</head>
+<body>
+    <canvas id="c"></canvas>
+
+    <div id="pwd-overlay" class="pwd-overlay" style="display:none">
+        <div class="pwd-dialog">
+            <h2 id="pwd-title">🔒 程序已锁定</h2>
+            <p id="pwd-msg">请输入密码以关闭程序</p>
+            <div id="pwd-info" class="pwd-info">
+                <div class="pwd-info-section"><strong>⌨ 快捷键</strong><ul><li><code>Alt+W</code> — 关闭</li><li><code>Alt+Tab</code> / <code>Alt+F4</code> / <code>Alt+Esc</code> — 已禁用</li><li><code>Ctrl+Esc</code> / <code>Ctrl+Shift+Esc</code> — 已禁用</li></ul></div>
+                <div class="pwd-info-section"><strong>🔑 按键映射</strong><ul><li><code>Super_L/R</code> → <code>Win</code></li><li><code>Alt_L/R</code> → <code>Alt</code></li><li><code>Control_L/R</code> → <code>Ctrl</code></li></ul></div>
+            </div>
+            <input id="pwd-input" type="password" placeholder="输入密码" autofocus />
+            <label class="pwd-remember"><input id="pwd-remember-cb" type="checkbox" /> 记住密码</label>
+            <p id="pwd-error" class="pwd-error" style="display:none">密码错误，请重试</p>
+            <div class="pwd-btns"><button id="pwd-confirm" class="pwd-btn primary">确认</button><button id="pwd-cancel" class="pwd-btn">取消</button></div>
+        </div>
+    </div>
+
+    <script src="../bridge.js"></script>
+    <script>
+        initBridge({ ready: startAnimation });
+
+        function startAnimation() {
+            var canvas = document.getElementById('c');
+            var ctx = canvas.getContext('2d');
+            var W, H;
+
+            function resize() {
+                W = window.innerWidth;
+                H = window.innerHeight;
+                canvas.width = W;
+                canvas.height = H;
+            }
+            resize();
+            window.addEventListener('resize', resize);
+
+            // 字符集：日文假名 + ASCII + 数字
+            var chars = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ<>/{}[]|&^%$#@!';
+
+            var fontSize = 14;
+            var columns = Math.floor(W / fontSize);
+
+            // 每列的 drops（存储历史位置用于拖尾）
+            var drops = [];
+            for (var i = 0; i < columns; i++) {
+                drops[i] = {
+                    y: Math.random() * H,
+                    speed: 1 + Math.random() * 3,
+                    length: 5 + Math.floor(Math.random() * 20),
+                    trail: []  // [{y, char}, ...] 最近若干帧的位置
+                };
+            }
+
+            function getChar() {
+                return chars[Math.floor(Math.random() * chars.length)];
+            }
+
+            // 主循环
+            function loop() {
+                ctx.clearRect(0, 0, W, H);
+                ctx.font = fontSize + 'px monospace';
+
+                for (var i = 0; i < drops.length; i++) {
+                    var drop = drops[i];
+
+                    // 每帧向下移动
+                    drop.y += drop.speed;
+
+                    // 当前头部字符加入 trail
+                    drop.trail.unshift({ y: drop.y, ch: getChar() });
+                    // 只保留 length 个历史位置
+                    if (drop.trail.length > drop.length + 5) {
+                        drop.trail.length = drop.length + 5;
+                    }
+
+                    // 重置
+                    if (drop.y > H + drop.length * fontSize) {
+                        drop.y = -drop.length * fontSize;
+                        drop.speed = 1 + Math.random() * 4;
+                        drop.trail = [];
+                    }
+
+                    // 绘制拖尾（从旧到新）
+                    var trailLen = drop.trail.length;
+                    for (var t = trailLen - 1; t >= 0; t--) {
+                        var item = drop.trail[t];
+                        var charY = item.y;
+                        if (charY < -fontSize || charY > H + fontSize) continue;
+
+                        // 根据位置计算 alpha：越旧越淡
+                        var age = trailLen - 1 - t;
+                        var alpha;
+                        if (age === 0) {
+                            alpha = 0.9;  // 头部亮白
+                            ctx.fillStyle = 'rgba(200, 255, 200, ' + alpha + ')';
+                        } else if (age < 4) {
+                            alpha = 0.7 - age * 0.1;
+                            ctx.fillStyle = 'rgba(100, 255, 100, ' + alpha + ')';
+                        } else {
+                            alpha = Math.max(0.03, 1 - age / drop.length);
+                            ctx.fillStyle = 'rgba(0, 180, 0, ' + alpha + ')';
+                        }
+
+                        ctx.fillText(item.ch, i * fontSize, charY);
+                    }
+                }
+
+                requestAnimationFrame(loop);
+            }
+            loop();
+        }
+    </script>
+</body>
+</html>

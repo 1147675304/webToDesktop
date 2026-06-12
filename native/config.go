@@ -40,6 +40,13 @@ type WindowConfig struct {
 
 	// 窗口圆角 (Win11)
 	RoundCorners bool
+
+	// 键盘快捷键拦截：启用后拦截 Ctrl+S 和前端注册的快捷键
+	KeyboardShortcuts bool
+
+	// 按键映射：物理按键名 → 映射名
+	// 映射后的按键被钩子拦截，不会传递到系统，同时以映射名触发事件
+	KeyMappings map[string]string
 }
 
 // DefaultConfig 默认配置（不改变窗口外观）

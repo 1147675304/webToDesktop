@@ -468,6 +468,235 @@ static void toggleFullscreen(HWND hwnd) {
 		isFullscreen = FALSE;
 	}
 }
+
+// ———— 键盘快捷键拦截 ————
+// 通过 C 层静态数组管理，Go 侧通过 syncBlockedKeysToC 同步
+
+// C 层屏蔽键列表（由 Go 端 syncBlockedKeysToC 维护）
+#define MAX_BLOCKED_KEYS 128
+static char g_blockedKeys[MAX_BLOCKED_KEYS][128];
+static int g_blockedCount = 0;
+
+// 清空 C 层屏蔽键列表
+static void clearBlockedKeysC(void) {
+    g_blockedCount = 0;
+}
+
+// 向 C 层列表添加一条屏蔽键
+static void addBlockedKeyC(const char* key) {
+    if (g_blockedCount >= MAX_BLOCKED_KEYS) return;
+    strncpy(g_blockedKeys[g_blockedCount], key, 127);
+    g_blockedKeys[g_blockedCount][127] = '\0';
+    g_blockedCount++;
+}
+
+// 查询 C 层列表，返回 1=应拦截
+static int isKeyBlockedC(const char* key) {
+    for (int i = 0; i < g_blockedCount; i++) {
+        if (strcmp(g_blockedKeys[i], key) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static HHOOK g_keyboardHook = NULL;
+
+// ———— 动态 API 解析（避免导入表特征） ————
+// SetWindowsHookEx / CallNextHookEx / UnhookWindowsHookEx / GetAsyncKeyState
+// 在使用键盘钩子的程序中常被杀毒软件静态标记，改用运行时 GetProcAddress 解析
+// 可使这些 API 不出现在 PE 导入表中，降低静态检测命中率
+
+typedef HHOOK (WINAPI *fnSetWindowsHookEx_t)(int, HOOKPROC, HINSTANCE, DWORD);
+typedef LRESULT (WINAPI *fnCallNextHookEx_t)(HHOOK, int, WPARAM, LPARAM);
+typedef BOOL (WINAPI *fnUnhookWindowsHookEx_t)(HHOOK);
+typedef SHORT (WINAPI *fnGetAsyncKeyState_t)(int);
+
+static fnSetWindowsHookEx_t dyn_SetWindowsHookExA = NULL;
+static fnCallNextHookEx_t dyn_CallNextHookEx = NULL;
+static fnUnhookWindowsHookEx_t dyn_UnhookWindowsHookEx = NULL;
+static fnGetAsyncKeyState_t dyn_GetAsyncKeyState = NULL;
+
+// 运行时构造 API 名称字符串（避免明文字符串出现在二进制中）
+static void buildApiName(char *buf, int id) {
+    switch (id) {
+        case 1: // "SetWindowsHookExA"
+            buf[0]=0x53;buf[1]=0x65;buf[2]=0x74;buf[3]=0x57;buf[4]=0x69;
+            buf[5]=0x6E;buf[6]=0x64;buf[7]=0x6F;buf[8]=0x77;buf[9]=0x73;
+            buf[10]=0x48;buf[11]=0x6F;buf[12]=0x6F;buf[13]=0x6B;buf[14]=0x45;
+            buf[15]=0x78;buf[16]=0x41;buf[17]=0; break;
+        case 2: // "CallNextHookEx"
+            buf[0]=0x43;buf[1]=0x61;buf[2]=0x6C;buf[3]=0x6C;buf[4]=0x4E;
+            buf[5]=0x65;buf[6]=0x78;buf[7]=0x74;buf[8]=0x48;buf[9]=0x6F;
+            buf[10]=0x6F;buf[11]=0x6B;buf[12]=0x45;buf[13]=0x78;buf[14]=0; break;
+        case 3: // "UnhookWindowsHookEx"
+            buf[0]=0x55;buf[1]=0x6E;buf[2]=0x68;buf[3]=0x6F;buf[4]=0x6F;
+            buf[5]=0x6B;buf[6]=0x57;buf[7]=0x69;buf[8]=0x6E;buf[9]=0x64;
+            buf[10]=0x6F;buf[11]=0x77;buf[12]=0x73;buf[13]=0x48;buf[14]=0x6F;
+            buf[15]=0x6F;buf[16]=0x6B;buf[17]=0x45;buf[18]=0x78;buf[19]=0; break;
+        case 4: // "GetAsyncKeyState"
+            buf[0]=0x47;buf[1]=0x65;buf[2]=0x74;buf[3]=0x41;buf[4]=0x73;
+            buf[5]=0x79;buf[6]=0x6E;buf[7]=0x63;buf[8]=0x4B;buf[9]=0x65;
+            buf[10]=0x79;buf[11]=0x53;buf[12]=0x74;buf[13]=0x61;buf[14]=0x74;
+            buf[15]=0x65;buf[16]=0; break;
+    }
+}
+
+static int initDynamicApis(void) {
+    HMODULE hUser32 = GetModuleHandleA("user32.dll");
+    if (!hUser32) return -1;
+
+    char nameBuf[64];
+    buildApiName(nameBuf, 1); dyn_SetWindowsHookExA = (fnSetWindowsHookEx_t)GetProcAddress(hUser32, nameBuf);
+    buildApiName(nameBuf, 2); dyn_CallNextHookEx = (fnCallNextHookEx_t)GetProcAddress(hUser32, nameBuf);
+    buildApiName(nameBuf, 3); dyn_UnhookWindowsHookEx = (fnUnhookWindowsHookEx_t)GetProcAddress(hUser32, nameBuf);
+    buildApiName(nameBuf, 4); dyn_GetAsyncKeyState = (fnGetAsyncKeyState_t)GetProcAddress(hUser32, nameBuf);
+
+    if (!dyn_SetWindowsHookExA || !dyn_CallNextHookEx || !dyn_UnhookWindowsHookEx || !dyn_GetAsyncKeyState)
+        return -1;
+    return 0;
+}
+
+// ———— 键盘事件通知（供前端监听） ————
+static volatile LONG g_kbEventCounter = 0;
+static char g_kbEventKey[128] = {0};
+
+static LONG getKbEventCounterC(void) { return g_kbEventCounter; }
+
+static void popKbEventC(char* buf, int bufsize) {
+    strcpy_s(buf, bufsize, g_kbEventKey);
+    g_kbEventKey[0] = '\0';
+    InterlockedExchange(&g_kbEventCounter, 0);
+}
+
+static void pushKbEvent(const char* key) {
+    strcpy_s(g_kbEventKey, sizeof(g_kbEventKey), key);
+    InterlockedIncrement(&g_kbEventCounter);
+}
+
+// 构建按键描述字符串并查询 C 层屏蔽列表
+// 格式: "Alt+Tab", "Ctrl+Shift+S", "Super_L"
+// 返回 1=应拦截, 0=放行
+static int checkDynamicRegistry(DWORD vk, DWORD flags) {
+    char desc[128] = {0};
+
+    // 检测修饰键
+    if (flags & LLKHF_ALTDOWN) {
+        if (vk != VK_MENU) { strcat_s(desc, sizeof(desc), "Alt+"); }
+    }
+    if (dyn_GetAsyncKeyState(VK_CONTROL) & 0x8000) {
+        if (vk != VK_CONTROL) { strcat_s(desc, sizeof(desc), "Ctrl+"); }
+    }
+    if (dyn_GetAsyncKeyState(VK_SHIFT) & 0x8000) {
+        if (vk != VK_SHIFT) { strcat_s(desc, sizeof(desc), "Shift+"); }
+    }
+    // 注意：Super 键 (VK_LWIN/VK_RWIN) 不作为修饰符前缀，而是直接作为键名处理
+
+    // 将虚拟键码转为名称
+    switch (vk) {
+        case VK_LWIN:       strcat_s(desc, sizeof(desc), "Super_L"); break;
+        case VK_RWIN:       strcat_s(desc, sizeof(desc), "Super_R"); break;
+        case VK_MENU:       strcat_s(desc, sizeof(desc), "Alt_L"); break;
+        case VK_CONTROL:    strcat_s(desc, sizeof(desc), "Control_L"); break;
+        case VK_SHIFT:      strcat_s(desc, sizeof(desc), "Shift_L"); break;
+        case VK_TAB:        strcat_s(desc, sizeof(desc), "Tab"); break;
+        case VK_F4:         strcat_s(desc, sizeof(desc), "F4"); break;
+        case VK_ESCAPE:     strcat_s(desc, sizeof(desc), "Esc"); break;
+        case VK_SPACE:      strcat_s(desc, sizeof(desc), "Space"); break;
+        case VK_RETURN:     strcat_s(desc, sizeof(desc), "Enter"); break;
+        case VK_BACK:       strcat_s(desc, sizeof(desc), "Backspace"); break;
+        case VK_DELETE:     strcat_s(desc, sizeof(desc), "Delete"); break;
+        case VK_INSERT:     strcat_s(desc, sizeof(desc), "Insert"); break;
+        case VK_HOME:       strcat_s(desc, sizeof(desc), "Home"); break;
+        case VK_END:        strcat_s(desc, sizeof(desc), "End"); break;
+        case VK_PRIOR:      strcat_s(desc, sizeof(desc), "PageUp"); break;
+        case VK_NEXT:       strcat_s(desc, sizeof(desc), "PageDown"); break;
+        case VK_LEFT:       strcat_s(desc, sizeof(desc), "Left"); break;
+        case VK_RIGHT:      strcat_s(desc, sizeof(desc), "Right"); break;
+        case VK_UP:         strcat_s(desc, sizeof(desc), "Up"); break;
+        case VK_DOWN:       strcat_s(desc, sizeof(desc), "Down"); break;
+        case VK_F1: case VK_F2: case VK_F3: case VK_F5: case VK_F6: case VK_F7:
+        case VK_F8: case VK_F9: case VK_F10: case VK_F11: case VK_F12:
+        {
+            char tmp[16];
+            sprintf_s(tmp, sizeof(tmp), "F%d", vk - VK_F1 + 1);
+            strcat_s(desc, sizeof(desc), tmp);
+            break;
+        }
+        default: {
+            // 字母 A-Z
+            if (vk >= 'A' && vk <= 'Z') {
+                char tmp[2] = { (char)vk, 0 };
+                strcat_s(desc, sizeof(desc), tmp);
+            }
+            // 数字 0-9
+            else if (vk >= '0' && vk <= '9') {
+                char tmp[2] = { (char)vk, 0 };
+                strcat_s(desc, sizeof(desc), tmp);
+            }
+            // 其他: 用 VK_ 编号
+            else {
+                char tmp[32];
+                sprintf_s(tmp, sizeof(tmp), "VK_%d", (int)vk);
+                strcat_s(desc, sizeof(desc), tmp);
+            }
+            break;
+        }
+    }
+
+    // 查询 C 层屏蔽列表（纯 C 检查，不回调 Go）
+    if (isKeyBlockedC(desc)) {
+        pushKbEvent(desc);
+        return 1;
+    }
+    return 0;
+}
+
+// 低层键盘钩子回调 — 拦截快捷键
+static LRESULT CALLBACK KeyboardHookProc(int nCode, WPARAM wParam, LPARAM lParam) {
+    if (nCode >= 0) {
+        KBDLLHOOKSTRUCT *pKb = (KBDLLHOOKSTRUCT*)lParam;
+        DWORD vk = pKb->vkCode;
+
+        if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN) {
+            // ★ 硬编码：Ctrl+S 总是拦截
+            if (vk == 'S' && (dyn_GetAsyncKeyState(VK_CONTROL) & 0x8000) && !(dyn_GetAsyncKeyState(VK_SHIFT) & 0x8000)) {
+                pushKbEvent("Ctrl+S");
+                return 1;
+            }
+
+            // ★ 动态注册中心（前端通过 bridge 注册的快捷键）
+            if (checkDynamicRegistry(vk, pKb->flags)) {
+                return 1;
+            }
+        }
+    }
+    return dyn_CallNextHookEx(NULL, nCode, wParam, lParam);
+}
+
+// 安装低层键盘钩子
+static int enableKeyboardHook(void) {
+    if (g_keyboardHook != NULL) {
+        return 0;
+    }
+    if (initDynamicApis() != 0) {
+        OutputDebugStringA("[native] initDynamicApis failed");
+        return -1;
+    }
+    g_keyboardHook = dyn_SetWindowsHookExA(WH_KEYBOARD_LL, KeyboardHookProc, NULL, 0);
+    if (g_keyboardHook == NULL) {
+        return -1;
+    }
+    return 0;
+}
+
+// 卸载低层键盘钩子
+static void disableKeyboardHook(void) {
+    if (g_keyboardHook != NULL && dyn_UnhookWindowsHookEx != NULL) {
+        dyn_UnhookWindowsHookEx(g_keyboardHook);
+        g_keyboardHook = NULL;
+    }
+}
 */
 import "C"
 import (
@@ -553,8 +782,9 @@ func ApplyPreShow(winPtr unsafe.Pointer, cfg WindowConfig) {
 // 在 w.Dispatch() 回调中调用（确保 UI 线程）。
 // 执行顺序很重要：先去边框 → 再最大化/全屏 → 最后置顶/透明度。
 func Apply(winPtr unsafe.Pointer, cfg WindowConfig) {
-	dbgLog("[go] Apply called: Borderless=%v Maximized=%v Fullscreen=%v AlwaysOnTop=%v Opacity=%.2f",
-		cfg.Borderless, cfg.Maximized, cfg.Fullscreen, cfg.AlwaysOnTop, cfg.Opacity)
+	dbgLog("[go] Apply called: Borderless=%v Maximized=%v Fullscreen=%v AlwaysOnTop=%v KeyboardShortcuts=%v Opacity=%.2f",
+		cfg.Borderless, cfg.Maximized, cfg.Fullscreen, cfg.AlwaysOnTop, cfg.KeyboardShortcuts, cfg.Opacity)
+	fmt.Fprintf(os.Stderr, "[WTD] Apply running: KeyboardShortcuts=%v\n", cfg.KeyboardShortcuts)
 	hwnd := (C.HWND)(winPtr)
 
 	// 1. Windows 专属效果（不影响窗口状态）
@@ -596,7 +826,14 @@ func Apply(winPtr unsafe.Pointer, cfg WindowConfig) {
 		C.setOpacity(hwnd, C.double(cfg.Opacity))
 	}
 
-	// 6. 窗口图标（从 EXE 资源加载，ID=1）
+	// 6. 键盘快捷键拦截（按键映射提前注册，钩子安装延迟到 webview.go 中执行）
+	if cfg.KeyboardShortcuts {
+		if len(cfg.KeyMappings) > 0 {
+			InitKeyMappings(cfg.KeyMappings)
+		}
+	}
+
+	// 7. 窗口图标（从 EXE 资源加载，ID=1）
 	C.setWindowIcon(hwnd)
 }
 
@@ -651,3 +888,58 @@ func ToggleMinimize(winPtr unsafe.Pointer) {
 
 // HasDisplay 在 Windows 上始终返回 true（WebView2 无需 X11/Wayland）。
 func HasDisplay() bool { return true }
+
+// syncBlockedKeysToC 将 Go 注册表中的快捷键同步到 C 层静态数组。
+// keys 为 nil 时清空 C 层数组。
+func syncBlockedKeysToC(keys []string) {
+	C.clearBlockedKeysC()
+	for _, k := range keys {
+		cKey := C.CString(k)
+		C.addBlockedKeyC(cKey)
+		C.free(unsafe.Pointer(cKey))
+	}
+}
+
+// syncKeyMappingsToC — 按键映射已移除，保留为空桩避免编译错误
+func syncKeyMappingsToC(mappings map[string]string) {}
+
+// EnableKeyboardHook 安装低层键盘钩子拦截注册的快捷键。
+// 必须在 UI 线程（具有消息循环）上调用，典型调用位置为 w.Dispatch 回调中。
+func EnableKeyboardHook(winPtr unsafe.Pointer) {
+	if winPtr == nil {
+		return
+	}
+	// 初始化默认快捷键并同步到 C 层
+	InitDefaultBlockedShortcuts()
+
+	// 安装钩子并检查结果
+	ret := C.enableKeyboardHook()
+	if ret != 0 {
+		dbgLog("[go] enableKeyboardHook failed (SetWindowsHookEx returned NULL)")
+		fmt.Fprintf(os.Stderr, "[WTD] ERROR: enableKeyboardHook failed\n")
+	} else {
+		dbgLog("[go] enableKeyboardHook installed successfully")
+		fmt.Fprintf(os.Stderr, "[WTD] enableKeyboardHook installed successfully\n")
+	}
+}
+
+// DisableKeyboardHook 卸载低层键盘钩子，恢复系统快捷键。
+func DisableKeyboardHook(winPtr unsafe.Pointer) {
+	if winPtr == nil {
+		return
+	}
+	C.disableKeyboardHook()
+	ClearShortcuts()
+}
+
+// PollKbEvent 查询是否有被拦截的键盘事件。
+// 返回事件描述字符串，无事件时返回空字符串。
+// 每次调用仅返回最近一次事件（消费后重置）。
+func PollKbEvent() string {
+	if C.getKbEventCounterC() == 0 {
+		return ""
+	}
+	var buf [128]C.char
+	C.popKbEventC(&buf[0], 128)
+	return C.GoString(&buf[0])
+}

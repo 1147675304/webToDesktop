@@ -5,8 +5,10 @@ package pkg
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -24,14 +26,31 @@ import (
 
 // ———— HTTP 服务器 ————
 
-func StartServer(staticFS fs.FS, remoteURL string, proxyPrefixes []string, store *Store, signHeader string) (string, *http.Server, error) {
+// accessTokenKey 是访问令牌的查询参数名和请求头名
+const accessTokenKey = "_wtd_"
+
+// generateAccessToken 生成 16 字节随机令牌，hex 编码为 32 字符字符串。
+func generateAccessToken() (string, error) {
+	buf := make([]byte, 16)
+	if _, err := rand.Read(buf); err != nil {
+		return "", fmt.Errorf("生成访问令牌失败: %w", err)
+	}
+	return hex.EncodeToString(buf), nil
+}
+
+func StartServer(staticFS fs.FS, remoteURL string, proxyPrefixes []string, store *Store, signHeader string) (string, string, *http.Server, error) {
+	token, err := generateAccessToken()
+	if err != nil {
+		return "", "", nil, err
+	}
+
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
-		return "", nil, fmt.Errorf("无法监听端口: %w", err)
+		return "", "", nil, fmt.Errorf("无法监听端口: %w", err)
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("/", NewProxyHandler(staticFS, remoteURL, proxyPrefixes, store, signHeader))
+	mux.Handle("/", NewProxyHandler(staticFS, remoteURL, proxyPrefixes, store, signHeader, token))
 
 	server := &http.Server{
 		Handler:      mux,
@@ -45,7 +64,8 @@ func StartServer(staticFS fs.FS, remoteURL string, proxyPrefixes []string, store
 		}
 	}()
 
-	return fmt.Sprintf("http://%s", listener.Addr().String()), server, nil
+	addr := fmt.Sprintf("http://%s", listener.Addr().String())
+	return addr, token, server, nil
 }
 
 func ShutdownServer(server *http.Server, timeout time.Duration) {
@@ -65,9 +85,46 @@ type proxyHandler struct {
 	store         *Store
 	reverseProxy  *httputil.ReverseProxy
 	signHeader    string // 桌面端签名请求头名称（来自 .env.production 的 VITE_DESKTOP_SIGN_HEADER）
+	accessToken   string // 随机访问令牌，防止浏览器访问
 }
 
-func NewProxyHandler(staticFS fs.FS, remoteURL string, proxyPrefixes []string, store *Store, signHeader string) http.Handler {
+// accessTokenQuery 从请求中提取访问令牌（优先级: Cookie > 查询参数 > 请求头）。
+// 返回令牌值，未找到则返回空字符串。
+func (h *proxyHandler) accessTokenQuery(r *http.Request) string {
+	// 1. Cookie（所有同域请求自动携带，最可靠）
+	if c, err := r.Cookie(accessTokenKey); err == nil && c.Value != "" {
+		return c.Value
+	}
+	// 2. URL 查询参数（初始导航时使用）
+	if token := r.URL.Query().Get(accessTokenKey); token != "" {
+		return token
+	}
+	// 3. 自定义请求头（XHR/fetch 由前端 JS 手动添加）
+	return r.Header.Get("X-WTD-Token")
+}
+
+// verifyAccessToken 校验请求是否携带有效的访问令牌。
+// WebView 的初始导航通过 URL 查询参数携带令牌，服务器设置 Cookie，
+// 此后该域的所有请求自动携带 Cookie，无需前端额外处理。
+func (h *proxyHandler) verifyAccessToken(r *http.Request) bool {
+	return h.accessTokenQuery(r) == h.accessToken
+}
+
+// setAccessTokenCookie 当请求通过查询参数验证令牌后，设置 Cookie 供后续请求自动携带。
+func (h *proxyHandler) setAccessTokenCookie(w http.ResponseWriter, r *http.Request) {
+	token := r.URL.Query().Get(accessTokenKey)
+	if token == h.accessToken {
+		http.SetCookie(w, &http.Cookie{
+			Name:     accessTokenKey,
+			Value:    token,
+			Path:     "/",
+			HttpOnly: true,
+			SameSite: http.SameSiteLaxMode,
+		})
+	}
+}
+
+func NewProxyHandler(staticFS fs.FS, remoteURL string, proxyPrefixes []string, store *Store, signHeader string, accessToken string) http.Handler {
 	target, _ := url.Parse(remoteURL)
 	// 默认头名称
 	if signHeader == "" {
@@ -79,6 +136,7 @@ func NewProxyHandler(staticFS fs.FS, remoteURL string, proxyPrefixes []string, s
 		proxyPrefixes: proxyPrefixes,
 		store:         store,
 		signHeader:    strings.TrimSpace(signHeader),
+		accessToken:   accessToken,
 	}
 	if target != nil {
 		h.reverseProxy = httputil.NewSingleHostReverseProxy(target)
@@ -87,6 +145,24 @@ func NewProxyHandler(staticFS fs.FS, remoteURL string, proxyPrefixes []string, s
 }
 
 func (h *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// ★ 访问令牌校验：所有请求必须携带有效令牌
+	if !h.verifyAccessToken(r) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	// 如果令牌来自 URL 查询参数（初始导航），设置 Cookie 供后续请求自动携带
+	// 这样 JS/CSS 等静态资源加载也能通过 Cookie 认证
+	hasTokenInURL := r.URL.Query().Get(accessTokenKey) != ""
+	if hasTokenInURL {
+		h.setAccessTokenCookie(w, r)
+	}
+
+	// 从 URL 中移除令牌查询参数（避免污染路径匹配和 SPA 路由）
+	q := r.URL.Query()
+	q.Del(accessTokenKey)
+	r.URL.RawQuery = q.Encode()
+
 	// 1. 代理前缀匹配
 	for _, prefix := range h.proxyPrefixes {
 		if strings.HasPrefix(r.URL.Path, prefix) {
@@ -158,6 +234,10 @@ func (h *proxyHandler) handleProxy(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "远程服务器未配置", 502)
 		return
 	}
+
+	// 移除访问令牌请求头和 Cookie，避免泄露到远程服务器
+	r.Header.Del("X-WTD-Token")
+	r.Header.Del("Cookie")
 
 	// 桌面端签名：使用配置的请求头名，值为 AES 加密的密钥+日期
 	if h.signHeader != "" && h.store != nil {

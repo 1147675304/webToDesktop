@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>极光</title>
+    <link rel="stylesheet" href="../bridge.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { cursor: none; user-select: none; -webkit-user-select: none; }
+        body {
+            width: 100vw; height: 100vh; overflow: hidden;
+            background: transparent; display: flex;
+            justify-content: center; align-items: center;
+            pointer-events: none;
+        }
+        canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; }
+    </style>
+</head>
+<body>
+    <canvas id="c"></canvas>
+
+    <div id="pwd-overlay" class="pwd-overlay" style="display:none">
+        <div class="pwd-dialog">
+            <h2 id="pwd-title">🔒 程序已锁定</h2>
+            <p id="pwd-msg">请输入密码以关闭程序</p>
+            <div id="pwd-info" class="pwd-info">
+                <div class="pwd-info-section"><strong>⌨ 快捷键</strong><ul><li><code>Alt+W</code> — 关闭</li><li><code>Alt+Tab</code> / <code>Alt+F4</code> / <code>Alt+Esc</code> — 已禁用</li><li><code>Ctrl+Esc</code> / <code>Ctrl+Shift+Esc</code> — 已禁用</li></ul></div>
+                <div class="pwd-info-section"><strong>🔑 按键映射</strong><ul><li><code>Super_L/R</code> → <code>Win</code></li><li><code>Alt_L/R</code> → <code>Alt</code></li><li><code>Control_L/R</code> → <code>Ctrl</code></li></ul></div>
+            </div>
+            <input id="pwd-input" type="password" placeholder="输入密码" autofocus />
+            <label class="pwd-remember"><input id="pwd-remember-cb" type="checkbox" /> 记住密码</label>
+            <p id="pwd-error" class="pwd-error" style="display:none">密码错误，请重试</p>
+            <div class="pwd-btns"><button id="pwd-confirm" class="pwd-btn primary">确认</button><button id="pwd-cancel" class="pwd-btn">取消</button></div>
+        </div>
+    </div>
+
+    <script src="../bridge.js"></script>
+    <script>
+        initBridge({ ready: startAnimation });
+
+        function startAnimation() {
+            var canvas = document.getElementById('c');
+            var ctx = canvas.getContext('2d');
+            var W, H;
+
+            function resize() {
+                W = window.innerWidth;
+                H = window.innerHeight;
+                canvas.width = W;
+                canvas.height = H;
+            }
+            resize();
+            window.addEventListener('resize', resize);
+
+            var time = 0;
+            var layers = [];
+
+            // 极光层
+            var NUM_LAYERS = 5;
+
+            function initLayers() {
+                layers = [];
+                for (var i = 0; i < NUM_LAYERS; i++) {
+                    layers.push({
+                        y: 0.15 + Math.random() * 0.5,
+                        height: 0.15 + Math.random() * 0.35,
+                        speed: 0.15 + Math.random() * 0.3,
+                        waveAmp: 20 + Math.random() * 60,
+                        waveFreq: 0.003 + Math.random() * 0.008,
+                        waveSpeed: 0.2 + Math.random() * 0.4,
+                        hue: 160 + Math.random() * 80 - 40,
+                        sat: 60 + Math.random() * 40,
+                        light: 50 + Math.random() * 30,
+                        alpha: 0.15 + Math.random() * 0.25,
+                        segments: []
+                    });
+                }
+            }
+
+            function buildSegments(layer, offset) {
+                layer.segments = [];
+                var segW = 4;
+                var count = Math.ceil(W / segW) + 1;
+                for (var i = 0; i < count; i++) {
+                    var x = i * segW;
+                    var baseY = layer.y * H;
+                    var wave = Math.sin(x * layer.waveFreq + offset * layer.waveSpeed) * layer.waveAmp
+                        + Math.sin(x * layer.waveFreq * 2.3 + offset * layer.waveSpeed * 1.7) * layer.waveAmp * 0.3
+                        + Math.sin(x * layer.waveFreq * 0.5 + offset * layer.waveSpeed * 0.4) * layer.waveAmp * 0.5;
+                    var topY = baseY + wave;
+                    var bottomY = topY + layer.height * H * 0.5;
+                    layer.segments.push({ x: x, topY: topY, bottomY: bottomY });
+                }
+            }
+
+            initLayers();
+            for (var i = 0; i < layers.length; i++) {
+                buildSegments(layers[i], i * 100);
+            }
+
+            function drawStarfield() {
+                if (!drawStarfield.stars) {
+                    drawStarfield.stars = [];
+                    for (var i = 0; i < 200; i++) {
+                        drawStarfield.stars.push({
+                            x: Math.random() * W,
+                            y: Math.random() * H * 0.6,
+                            r: 0.5 + Math.random() * 1.5,
+                            a: 0.3 + Math.random() * 0.7,
+                            s: 0.005 + Math.random() * 0.02
+                        });
+                    }
+                }
+                var stars = drawStarfield.stars;
+                for (var i = 0; i < stars.length; i++) {
+                    var s = stars[i];
+                    var alpha = s.a + Math.sin(time * s.s * 10 + i) * 0.3;
+                    ctx.fillStyle = 'rgba(255,255,255,' + Math.max(0, alpha) + ')';
+                    ctx.beginPath();
+                    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            function loop() {
+                time++;
+                ctx.clearRect(0, 0, W, H);
+
+                drawStarfield();
+
+                // 重建极光段
+                for (var i = 0; i < layers.length; i++) {
+                    buildSegments(layers[i], time * layers[i].speed + i * 100);
+                }
+
+                // 从后往前绘制（远处先画）
+                for (var i = layers.length - 1; i >= 0; i--) {
+                    var layer = layers[i];
+                    var segs = layer.segments;
+
+                    // 使用渐变绘制每段的梯形
+                    for (var j = 0; j < segs.length - 1; j++) {
+                        var s0 = segs[j];
+                        var s1 = segs[j + 1];
+
+                        var grad = ctx.createLinearGradient(0, s0.topY, 0, s0.bottomY);
+                        var hue = layer.hue + Math.sin(time * 0.01 + i * 2) * 15;
+                        var sat = layer.sat + Math.sin(time * 0.008 + i * 3) * 10;
+                        var topColor = 'hsla(' + hue + ',' + sat + '%,' + (layer.light + 10) + '%,' + layer.alpha + ')';
+                        var midColor = 'hsla(' + (hue + 10) + ',' + (sat - 10) + '%,' + (layer.light - 5) + '%,' + (layer.alpha * 0.6) + ')';
+                        var botColor = 'hsla(' + (hue + 20) + ',' + (sat - 20) + '%,' + (layer.light - 20) + '%,0)';
+
+                        grad.addColorStop(0, topColor);
+                        grad.addColorStop(0.5, midColor);
+                        grad.addColorStop(1, botColor);
+
+                        ctx.fillStyle = grad;
+                        ctx.beginPath();
+                        ctx.moveTo(s0.x, s0.topY);
+                        ctx.lineTo(s1.x, s1.topY);
+                        ctx.lineTo(s1.x, s1.bottomY);
+                        ctx.lineTo(s0.x, s0.bottomY);
+                        ctx.closePath();
+                        ctx.fill();
+                    }
+                }
+
+                // 地面剪影
+                var groundGrad = ctx.createLinearGradient(0, H * 0.7, 0, H);
+                groundGrad.addColorStop(0, 'rgba(0,0,0,0)');
+                groundGrad.addColorStop(0.3, 'rgba(0,5,10,0.6)');
+                groundGrad.addColorStop(1, 'rgba(0,2,5,1)');
+                ctx.fillStyle = groundGrad;
+                ctx.fillRect(0, H * 0.7, W, H * 0.3);
+
+                // 地面树木剪影
+                ctx.fillStyle = 'rgba(0,3,8,0.8)';
+                for (var i = 0; i < 30; i++) {
+                    var tx = ((i * 137.5 + time * 0.05) % W);
+                    var th = 20 + Math.sin(i * 3.7) * 15 + 15;
+                    ctx.beginPath();
+                    ctx.moveTo(tx - 8, H);
+                    ctx.lineTo(tx, H - th);
+                    ctx.lineTo(tx + 8, H);
+                    ctx.fill();
+                }
+
+                requestAnimationFrame(loop);
+            }
+            loop();
+        }
+    </script>
+</body>
+</html>
