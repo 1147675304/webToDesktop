@@ -30,8 +30,8 @@ window:
 
   # ———— 窗口状态（三选一，优先级: fullscreen > maximized > 普通） ————
   # ⚠️涉及按键拦截类程序打包完成测试前请勿使用全屏，避免无法关闭程序
-  fullscreen: false     # 全屏：覆盖整个显示器（含任务栏），隐藏一切边框
-  maximized: true      # 最大化：填充工作区（保留任务栏）
+  fullscreen: true     # 全屏：覆盖整个显示器（含任务栏），隐藏一切边框
+  maximized: false      # 最大化：填充工作区（保留任务栏）
                         # 若都为 false → 普通窗口（width x height）
 
   # ———— 窗口样式 ————

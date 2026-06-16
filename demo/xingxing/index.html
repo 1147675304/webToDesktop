@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WebToDesktop 效果启动器</title>
-    <link rel="stylesheet" href="bridge.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body { user-select: none; -webkit-user-select: none; }
@@ -312,139 +311,7 @@
             pointer-events: none;
         }
 
-        /* ———— 密码保护弹窗 ———— */
-        .pwd-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.75);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-            pointer-events: auto;
-            cursor: auto;
-        }
-        .pwd-dialog {
-            background: #1a1a2e;
-            border: 1px solid rgba(255,255,255,0.15);
-            border-radius: 16px;
-            padding: 36px 40px;
-            width: 460px;
-            max-width: 92vw;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-            pointer-events: auto;
-            cursor: auto;
-        }
-        .pwd-info {
-            margin: 12px 0 16px;
-            padding: 12px 16px;
-            background: rgba(255,255,255,0.04);
-            border-radius: 10px;
-            border: 1px solid rgba(255,255,255,0.08);
-        }
-        .pwd-info-section {
-            margin-bottom: 10px;
-        }
-        .pwd-info-section:last-child { margin-bottom: 0; }
-        .pwd-info-section strong {
-            display: block;
-            font-size: 12px;
-            color: rgba(255,255,255,0.5);
-            margin-bottom: 4px;
-        }
-        .pwd-info-section ul {
-            margin: 0;
-            padding: 0 0 0 16px;
-            list-style: none;
-        }
-        .pwd-info-section li {
-            font-size: 12px;
-            color: rgba(255,255,255,0.7);
-            line-height: 1.8;
-            position: relative;
-        }
-        .pwd-info-section li::before {
-            content: '•';
-            position: absolute;
-            left: -12px;
-            color: rgba(255,255,255,0.3);
-        }
-        .pwd-info-section code {
-            background: rgba(255,255,255,0.1);
-            padding: 1px 5px;
-            border-radius: 3px;
-            font-size: 11px;
-            color: #6bb5ff;
-        }
-        .pwd-dialog h2 {
-            margin: 0 0 8px 0;
-            font-size: 20px;
-            color: #fff;
-            text-align: center;
-        }
-        .pwd-dialog p {
-            margin: 0 0 20px 0;
-            font-size: 13px;
-            color: rgba(255,255,255,0.6);
-            text-align: center;
-        }
-        .pwd-dialog input[type="password"] {
-            width: 100%;
-            padding: 12px 16px;
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 8px;
-            background: rgba(255,255,255,0.08);
-            color: #fff;
-            font-size: 15px;
-            outline: none;
-            box-sizing: border-box;
-            pointer-events: auto;
-            cursor: auto;
-        }
-        .pwd-dialog input[type="password"]:focus {
-            border-color: #6bb5ff;
-        }
-        .pwd-dialog input[type="password"]::placeholder {
-            color: rgba(255,255,255,0.3);
-        }
-        .pwd-error {
-            color: #ff6b6b !important;
-            font-size: 12px !important;
-            margin: 8px 0 0 0 !important;
-        }
-        .pwd-btns {
-            display: flex;
-            gap: 10px;
-            margin-top: 20px;
-            pointer-events: auto;
-            cursor: auto;
-        }
-        .pwd-btn {
-            flex: 1;
-            padding: 10px;
-            border: 1px solid rgba(255,255,255,0.15);
-            border-radius: 8px;
-            background: rgba(255,255,255,0.06);
-            color: #fff;
-            font-size: 14px;
-            cursor: pointer;
-            pointer-events: auto;
-            transition: background 0.15s;
-        }
-        .pwd-btn:hover { background: rgba(255,255,255,0.12); }
-        .pwd-btn.primary {
-            background: #2266cc;
-            border-color: #2266cc;
-        }
-        .pwd-btn.primary:hover { background: #2a75e8; }
-        .pwd-remember {
-            display: flex; align-items: center; gap: 6px;
-            margin: 12px 0 0; font-size: 13px; color: rgba(255,255,255,0.5);
-            cursor: pointer; pointer-events: auto;
-        }
-        .pwd-remember input[type="checkbox"] {
-            width: 16px; height: 16px; cursor: pointer; pointer-events: auto;
-        }
+
     </style>
 </head>
 <body>
@@ -474,41 +341,9 @@
         </a>
     </div>
 
-    <div id="pwd-overlay" class="pwd-overlay" style="display:none">
-        <div class="pwd-dialog">
-            <h2 id="pwd-title">🔒 程序已锁定</h2>
-            <p id="pwd-msg">请输入密码以关闭程序</p>
-            <div id="pwd-info" class="pwd-info">
-                <div class="pwd-info-section">
-                    <strong>⌨ 快捷键</strong>
-                    <ul>
-                        <li><code>Alt+W</code> — 关闭窗口（需密码验证）</li>
-                        <li><code>Alt+Tab</code> / <code>Alt+F4</code> / <code>Alt+Esc</code> — 已禁用</li>
-                        <li><code>Ctrl+Esc</code> / <code>Ctrl+Shift+Esc</code> — 已禁用</li>
-                    </ul>
-                </div>
-                <div class="pwd-info-section">
-                    <strong>🔑 按键映射（操作系统级快捷键已禁用）</strong>
-                    <ul>
-                        <li><code>Super_L</code> / <code>Super_R</code> → <code>Win</code></li>
-                        <li><code>Alt_L</code> / <code>Alt_R</code> → <code>Alt</code></li>
-                        <li><code>Control_L</code> / <code>Control_R</code> → <code>Ctrl</code></li>
-                    </ul>
-                </div>
-            </div>
-            <input id="pwd-input" type="password" placeholder="输入密码" autofocus />
-            <label class="pwd-remember"><input id="pwd-remember-cb" type="checkbox" /> 记住密码</label>
-            <p id="pwd-error" class="pwd-error" style="display:none">密码错误，请重试</p>
-            <div class="pwd-btns">
-                <button id="pwd-confirm" class="pwd-btn primary">确认</button>
-                <button id="pwd-cancel" class="pwd-btn">取消</button>
-            </div>
-        </div>
-    </div>
-
     <script src="bridge.js"></script>
     <script>
-        initBridge({ showPwd: true });
+        initBridge();
     </script>
 </body>
 </html>

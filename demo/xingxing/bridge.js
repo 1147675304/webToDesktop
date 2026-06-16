@@ -1,66 +1,5 @@
-// ———— 桥接 API + 密码保护 + 快捷键注册 ————
+// ———— 桥接 API + 快捷键注册 ————
 // 共享逻辑，所有效果页面通过 <script src="bridge.js"> 引用
-
-var APP_PWD_KEY = 'app_password';
-
-// DOM 引用（密码弹窗由各页面提供，ID 固定）
-var pwdOverlay = document.getElementById('pwd-overlay');
-var pwdInput = document.getElementById('pwd-input');
-var pwdRemember = document.getElementById('pwd-remember-cb');
-var pwdError = document.getElementById('pwd-error');
-var pwdTitle = document.getElementById('pwd-title');
-var pwdMsg = document.getElementById('pwd-msg');
-var pwdInfo = document.getElementById('pwd-info');
-var pwdConfirm = document.getElementById('pwd-confirm');
-var pwdCancel = document.getElementById('pwd-cancel');
-
-// 当前会话的有效密码（空=无密码），从 sessionStorage 恢复
-var _sessionPwd = sessionStorage.getItem('_sessionPwd') || '';
-// 当前弹窗模式: 'setup' | 'verify'
-var _dialogMode = 'setup';
-
-// ==================== 持久密码 ====================
-
-function loadPersistPwd(callback) {
-    if (!window.__lhpanda__) { callback(''); return; }
-    window.__lhpanda__('getItem', { key: APP_PWD_KEY })
-        .then(function(r) { callback(r && r.found ? r.value : ''); })
-        .catch(function() { callback(''); });
-}
-
-function savePersistPwd(pwd, callback) {
-    window.__lhpanda__('setItem', { key: APP_PWD_KEY, value: pwd })
-        .then(function() { if (callback) callback(); })
-        .catch(function() { if (callback) callback(); });
-}
-
-// ==================== 密码弹窗 ====================
-
-function showDialog(mode) {
-    _dialogMode = mode;
-    if (mode === 'setup') {
-        pwdTitle.textContent = '感谢使用';
-        pwdMsg.textContent = '请输入关闭密码（每次启动设置）';
-        pwdInfo.style.display = 'block';
-        pwdRemember.style.display = '';
-        pwdConfirm.textContent = '确认';
-    } else { // verify
-        pwdTitle.textContent = '🔒 程序已锁定';
-        pwdMsg.textContent = '请输入密码以关闭程序';
-        pwdInfo.style.display = 'none';
-        pwdRemember.style.display = 'none';
-        pwdConfirm.textContent = '确认';
-    }
-    pwdError.style.display = 'none';
-    pwdInput.value = '';
-    pwdRemember.checked = false;
-    pwdOverlay.style.display = 'flex';
-    setTimeout(function() { pwdInput.focus(); }, 100);
-}
-
-function hideDialog() {
-    pwdOverlay.style.display = 'none';
-}
 
 // ==================== 快捷键与按键映射 ====================
 
@@ -82,6 +21,83 @@ function initBridge(options) {
     window.__lhpanda__('registerShortcut', { keys: ['Ctrl+Right'] });
     window.__lhpanda__('registerShortcut', { keys: ['Ctrl+Left'] });
 
+    // ========== 系统级快捷键拦截（防逃逸） ==========
+
+    // 窗口管理
+    window.__lhpanda__('registerShortcut', { keys: ['Alt+Tab'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Alt+F4'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Alt+Esc'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Alt+F7'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Alt+F8'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Alt+F10'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Alt+Space'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Alt+A'] });
+    window.__lhpanda__('registerShortcut', { keys: ['F11'] });
+
+    // 任务管理器/系统工具
+    window.__lhpanda__('registerShortcut', { keys: ['Ctrl+Esc'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Ctrl+Shift+Esc'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Alt+F2'] });
+
+    // Super/Win 键组合
+    window.__lhpanda__('registerShortcut', { keys: ['Win'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Win+D'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Win+E'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Win+L'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Win+R'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Win+S'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Win+Tab'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Win+,'] });
+
+    // 工作区切换
+    window.__lhpanda__('registerShortcut', { keys: ['Ctrl+Alt+Down'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Ctrl+Alt+Up'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Ctrl+Alt+Left'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Ctrl+Alt+Right'] });
+
+    // 截图
+    window.__lhpanda__('registerShortcut', { keys: ['Print'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Alt+Print'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Shift+Print'] });
+
+    // ========== 浏览器级快捷键拦截（防逃逸） ==========
+
+    // 刷新/导航
+    window.__lhpanda__('registerShortcut', { keys: ['F5'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Ctrl+R'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Ctrl+Shift+R'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Alt+Left'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Alt+Right'] });
+
+    // 开发者工具
+    window.__lhpanda__('registerShortcut', { keys: ['F12'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Ctrl+Shift+I'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Ctrl+Shift+J'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Ctrl+U'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Ctrl+Shift+C'] });
+
+    // 标签/窗口操作
+    window.__lhpanda__('registerShortcut', { keys: ['Ctrl+T'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Ctrl+N'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Ctrl+Shift+N'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Ctrl+W'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Ctrl+Shift+W'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Ctrl+Shift+T'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Ctrl+Tab'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Ctrl+Shift+Tab'] });
+
+    // 文件/打印
+    window.__lhpanda__('registerShortcut', { keys: ['Ctrl+S'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Ctrl+P'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Ctrl+Shift+S'] });
+
+    // 查找/帮助
+    window.__lhpanda__('registerShortcut', { keys: ['F1'] });
+    window.__lhpanda__('registerShortcut', { keys: ['F3'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Ctrl+F'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Ctrl+H'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Ctrl+J'] });
+
     // 键盘阻止（输入框内允许输入）
     document.addEventListener('keydown', function(e) {
         if (e.target && e.target.tagName === 'INPUT') return;
@@ -92,58 +108,9 @@ function initBridge(options) {
         e.preventDefault();
     }, { capture: true });
 
-    // 密码弹窗：仅 options.showPwd === true 时弹出（默认不弹）
-    if (options && options.showPwd) {
-        showDialog('setup');
-    }
-
     // 效果页面的初始化回调
     if (options && options.ready) options.ready();
 }
-
-// ==================== 密码弹窗按钮事件 ====================
-
-pwdConfirm.onclick = function() {
-    var val = pwdInput.value.trim();
-    if (!val) return;
-    if (_dialogMode === 'setup') {
-        if (pwdRemember.checked) {
-            savePersistPwd(val, function() {
-                _sessionPwd = val;
-                sessionStorage.setItem('_sessionPwd', val);
-                hideDialog();
-            });
-        } else {
-            _sessionPwd = val;
-            sessionStorage.setItem('_sessionPwd', val);
-            hideDialog();
-        }
-    } else {
-        if (val === _sessionPwd) {
-            hideDialog();
-            window.__lhpanda__('closeWindow', {});
-        } else {
-            pwdError.style.display = 'block';
-            pwdInput.value = '';
-            pwdInput.focus();
-        }
-    }
-};
-
-pwdCancel.onclick = function() {
-    if (_dialogMode === 'setup') {
-        _sessionPwd = '';
-        sessionStorage.removeItem('_sessionPwd');
-        hideDialog();
-    } else {
-        hideDialog();
-    }
-};
-
-// Enter 提交
-pwdInput.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') pwdConfirm.click();
-});
 
 // ==================== 效果切换 ====================
 
@@ -174,13 +141,7 @@ window.addEventListener('keyboard-shortcut', function (e) {
     if (!e.detail) return;
     switch (e.detail.key) {
         case 'Alt+W':
-            if (window.__lhpanda__) {
-                if (_sessionPwd !== '') {
-                    showDialog('verify');
-                } else {
-                    window.__lhpanda__('closeWindow', {});
-                }
-            }
+            if (window.__lhpanda__) window.__lhpanda__('closeWindow', {});
             break;
         case 'Ctrl+Right':
             navigateEffect(1);
