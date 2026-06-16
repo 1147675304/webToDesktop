@@ -56,10 +56,12 @@ type HandlerFunc func(params map[string]interface{}) (interface{}, error)
 //   - wv      关联的原生 WebView 实例，用于 Dispatch() 到 UI 线程执行窗口操作
 //   - winPtr  缓存的原生窗口句柄（HWND/GtkWindow），避免每次从 wv 获取
 type Bridge struct {
-	store   *pkg.Store
-	methods map[string]HandlerFunc
-	wv      webview.WebView
-	winPtr  unsafe.Pointer
+	store                *pkg.Store
+	methods              map[string]HandlerFunc
+	wv                   webview.WebView
+	winPtr               unsafe.Pointer
+	lastPassthroughState bool
+	lastPassthroughValid bool // 首次调用强制生效
 }
 
 // New 创建 Bridge 实例并自动注册所有 handle* 方法。

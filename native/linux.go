@@ -697,6 +697,38 @@ func ToggleMinimize(winPtr unsafe.Pointer) {
 	C.gtk_window_iconify((*C.GtkWindow)(winPtr))
 }
 
+// EnableInputPassthrough 启用输入穿透（Linux 下默认穿透，调用此函数无需额外操作）。
+// Linux 通过不设置 input shape 来实现穿透，此函数为确保接口统一而保留。
+func EnableInputPassthrough(winPtr unsafe.Pointer) {}
+
+// DisableInputPassthrough 禁用输入穿透（Linux 下通过 setInputShapeFull 捕获所有点击）。
+func DisableInputPassthrough(winPtr unsafe.Pointer) {
+	if winPtr == nil {
+		return
+	}
+	C.setInputShapeFull((*C.GtkWindow)(winPtr))
+}
+
+// IsInputPassthrough 查询当前是否启用输入穿透。
+// Linux 下始终返回 true（Linux 默认不捕获输入，除非显式调用 DisableInputPassthrough）。
+func IsInputPassthrough(winPtr unsafe.Pointer) bool {
+	return true
+}
+
+// OpaqueRegion 不透光矩形（Linux 下为桩，接口统一）。
+type OpaqueRegion struct {
+	X, Y, W, H int
+}
+
+// SetOpaqueRegions Linux 下精准穿透通过 input shape 实现（目前为桩）。
+func SetOpaqueRegions(winPtr unsafe.Pointer, regions []OpaqueRegion) {}
+
+// ClearOpaqueRegions Linux 下清空区域后回退到默认穿透。
+func ClearOpaqueRegions(winPtr unsafe.Pointer) {}
+
+func PollPassthroughState(winPtr unsafe.Pointer) (bool, int, int) { return false, 0, 0 }
+func PollCursorPos(winPtr unsafe.Pointer) (int32, int32)          { return -1, -1 }
+
 // x11SocketExists 检查 X11 Unix socket 是否实际存在。
 func x11SocketExists(display string) bool {
 	idx := strings.LastIndex(display, ":")

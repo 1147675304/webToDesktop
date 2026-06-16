@@ -11,12 +11,35 @@
       <li>前端需设置 <code>html { background: transparent; }</code> 配合</li>
     </ul>
 
-    <h3>透明区域点击穿透（Linux 专用）</h3>
-    <p class="desc">配置 <code>input_passthrough: true</code> 允许鼠标穿过完全透明的区域操作下层窗口：</p>
+    <h3>透明区域点击穿透（跨平台）</h3>
+    <p class="desc">配置 <code>input_passthrough: true</code> 允许鼠标穿过透明区域操作下层窗口：</p>
+
+    <h4>Windows（WebView2）</h4>
+    <ul class="feature-list">
+      <li>通过 <strong>WS_EX_TRANSPARENT</strong> 窗口扩展样式实现</li>
+      <li>JS 每帧通过 <code>bridge.getCursorPos</code> 获取鼠标坐标</li>
+      <li>逐像素检测透明度（Canvas <code>getImageData</code> + CSS <code>elementFromPoint</code>）</li>
+      <li>100ms 防抖后切换窗口穿透状态</li>
+      <li>仅 <code>initBridge({inputPassthrough: true})</code> 的页面启用</li>
+      <li>启动器页面用 <code>false</code> 禁用，正常交互</li>
+    </ul>
+
+    <h4>Linux（GTK/WebKit）</h4>
+    <ul class="feature-list">
+      <li>通过 <strong>input shape</strong> 机制实现</li>
+      <li>默认穿透，调用 <code>setInputShapeFull</code> 时捕获所有点击</li>
+    </ul>
+
     <CodeBlock lang="yaml">window:
   webview_bg_transparent: true
-  input_passthrough: true  # Linux 专用，Windows 自动忽略</CodeBlock>
-    <p class="hint">启用后，合成器会根据像素 alpha 通道自动判断穿透区域。禁用时所有点击由本窗口捕获（与 Windows 行为一致）。</p>
+  input_passthrough: true  # 跨平台支持</CodeBlock>
+
+    <h4>前端页面配置</h4>
+    <CodeBlock lang="javascript">// 效果页面（纯视觉叠加层）：启用穿透检测
+initBridge({ inputPassthrough: true, ready: startAnimation });
+
+// 启动器页面（有交互元素）：禁用穿透
+initBridge({ inputPassthrough: false });</CodeBlock>
 
     <h3>前端示例代码</h3>
     <p class="hint">拖拽条 + 窗口控制按钮的完整实现，使用 Element Plus 图标。</p>

@@ -88,6 +88,12 @@ static void dbgLog(const char *msg) {
 #ifndef DWM_WINDOW_CORNER_PREFERENCE
 typedef enum { DWMWCP_DEFAULT = 0, DWMWCP_DONOTROUND = 1, DWMWCP_ROUND = 2, DWMWCP_ROUNDSMALL = 3 } DWM_WINDOW_CORNER_PREFERENCE;
 #endif
+#ifndef WS_EX_TRANSPARENT
+#define WS_EX_TRANSPARENT 0x00000020L
+#endif
+#ifndef WS_EX_LAYERED
+#define WS_EX_LAYERED 0x00080000L
+#endif
 
 static void setDarkTitleBar(HWND hwnd) {
 	dbgLog("[native] setDarkTitleBar");
@@ -263,6 +269,22 @@ static void reapplyAcrylicAndFlush(HWND hwnd); // 前置声明
 
 static WNDPROC g_origBorderlessProc = NULL;
 static const LONG kResizeMargin = 6;
+
+// ———— 不透光区域 + 穿透状态 ————
+#define MAX_OPAQUE_REGIONS 128
+static RECT g_opaqueRegions[MAX_OPAQUE_REGIONS];
+static int g_opaqueRegionCount = 0;
+static BOOL g_passthroughEnabled = FALSE;
+
+// 检查客户区坐标 pt 是否在任一不透光区域内
+static BOOL isPointInOpaqueRegionC(POINT pt) {
+    for (int i = 0; i < g_opaqueRegionCount; i++) {
+        if (PtInRect(&g_opaqueRegions[i], pt)) {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
 
 static LRESULT CALLBACK BorderlessWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     if (msg == WM_NCHITTEST) {
@@ -697,6 +719,71 @@ static void disableKeyboardHook(void) {
         g_keyboardHook = NULL;
     }
 }
+
+// ———— 输入穿透（精准按区域穿透到下层窗口） ————
+//
+// 架构：
+//   前端 JS 通过 bridge.setOpaqueRegions() 上报不透光区域的矩形列表，
+//   C 层在 WM_NCHITTEST 中判断命中坐标是否在不透光区域内：
+//     - 在区域内 → 返回 HTCLIENT（本窗口正常捕获）
+//     - 不在区域内 → 返回 HTTRANSPARENT（穿透到下层窗口）
+//
+// 两种模式：
+//   模式 A（全局穿透）：opaqueRegionCount == 0 且 inputPassthrough 启用
+//     → 使用 WS_EX_TRANSPARENT 全局穿透（适合纯视觉叠加层）
+//   模式 B（精准穿透）：opaqueRegionCount > 0
+//     → 移除 WS_EX_TRANSPARENT，通过 WM_NCHITTEST 返回 HTTRANSPARENT 精准控制
+//     （适合有交互元素的页面，只有透明区域穿透）
+
+// 清空不透光区域列表
+static void clearOpaqueRegionsC(void) {
+    g_opaqueRegionCount = 0;
+}
+
+// 添加一个不透光矩形（坐标相对于窗口客户区原点）
+static void addOpaqueRegionC(int x, int y, int w, int h) {
+    if (g_opaqueRegionCount >= MAX_OPAQUE_REGIONS) return;
+    if (w <= 0 || h <= 0) return;
+    g_opaqueRegions[g_opaqueRegionCount].left   = x;
+    g_opaqueRegions[g_opaqueRegionCount].top    = y;
+    g_opaqueRegions[g_opaqueRegionCount].right  = x + w;
+    g_opaqueRegions[g_opaqueRegionCount].bottom = y + h;
+    g_opaqueRegionCount++;
+}
+
+// 设置穿透模式开关
+static void setPassthroughEnabledC(BOOL enabled) {
+    g_passthroughEnabled = enabled;
+    if (!enabled) {
+        clearOpaqueRegionsC();
+    }
+}
+
+static BOOL isPassthroughEnabledC(void) { return g_passthroughEnabled; }
+static int getOpaqueRegionCountC(void) { return g_opaqueRegionCount; }
+
+// 启用全局穿透（WS_EX_TRANSPARENT，适合纯视觉叠加层）
+static void enableGlobalPassthrough(HWND hwnd) {
+    LONG exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
+    SetWindowLong(hwnd, GWL_EXSTYLE, exStyle | WS_EX_LAYERED | WS_EX_TRANSPARENT);
+    SetWindowPos(hwnd, NULL, 0, 0, 0, 0,
+        SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
+// 禁用全局穿透（移除 WS_EX_TRANSPARENT，保留 WS_EX_LAYERED）
+static void disableGlobalPassthrough(HWND hwnd) {
+    LONG exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
+    SetWindowLong(hwnd, GWL_EXSTYLE, exStyle & ~WS_EX_TRANSPARENT);
+    SetWindowPos(hwnd, NULL, 0, 0, 0, 0,
+        SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
+static int isGlobalPassthroughC(HWND hwnd) {
+    return (GetWindowLong(hwnd, GWL_EXSTYLE) & WS_EX_TRANSPARENT) ? 1 : 0;
+}
+
+// ———— 穿透：WM_NCHITTEST 自动记录并推送鼠标位置 ————
+// WM_NCHITTEST 被 WS_EX_TRANSPARENT 屏蔽，改用 Go goroutine 保底轮询。
 */
 import "C"
 import (
@@ -717,7 +804,6 @@ func dbgLog(format string, args ...interface{}) {
 }
 
 // SetWebView2BackgroundColor 运行时设置 WebView2 控件背景色（ARGB）。
-// ctrlPtr 来自 WebView2 ICoreWebView2Controller 指针。
 func SetWebView2BackgroundColor(ctrlPtr unsafe.Pointer, a, r, g, b byte) {
 	C.setWebView2BgColor(ctrlPtr, C.BYTE(a), C.BYTE(r), C.BYTE(g), C.BYTE(b))
 }
@@ -835,6 +921,16 @@ func Apply(winPtr unsafe.Pointer, cfg WindowConfig) {
 
 	// 7. 窗口图标（从 EXE 资源加载，ID=1）
 	C.setWindowIcon(hwnd)
+
+	// 8. 输入穿透
+	if cfg.InputPassthrough {
+		C.setPassthroughEnabledC(1)
+		C.enableGlobalPassthrough(hwnd)
+	} else {
+		C.setPassthroughEnabledC(0)
+		C.disableGlobalPassthrough(hwnd)
+		C.clearOpaqueRegionsC()
+	}
 }
 
 // ———— 窗口拖拽 / 调整大小（无边框窗口用） ————
@@ -884,6 +980,88 @@ func ToggleMinimize(winPtr unsafe.Pointer) {
 	hwnd := (C.HWND)(winPtr)
 	// SW_MINIMIZE = 6，将窗口最小化到任务栏
 	C.ShowWindow(hwnd, 6)
+}
+
+// EnableInputPassthrough 启用全局输入穿透（WS_EX_TRANSPARENT，适合纯视觉叠加层）。
+// 注意：此方法使整个窗口穿透（包括不透明区域）。如需精准穿透，
+// 请使用 SetOpaqueRegions 设置不透光区域列表。
+// 需在 Dispatch 回调中调用。
+func EnableInputPassthrough(winPtr unsafe.Pointer) {
+	if winPtr == nil {
+		return
+	}
+	C.setPassthroughEnabledC(1)
+	C.enableGlobalPassthrough((C.HWND)(winPtr))
+}
+
+// DisableInputPassthrough 禁用输入穿透（恢复窗口正常鼠标事件处理）。
+// 需在 Dispatch 回调中调用。
+func DisableInputPassthrough(winPtr unsafe.Pointer) {
+	if winPtr == nil {
+		return
+	}
+	C.setPassthroughEnabledC(0)
+	C.disableGlobalPassthrough((C.HWND)(winPtr))
+}
+
+// IsInputPassthrough 查询当前是否启用输入穿透（全局穿透或精准穿透均返回 true）。
+func IsInputPassthrough(winPtr unsafe.Pointer) bool {
+	if winPtr == nil {
+		return false
+	}
+	if C.isPassthroughEnabledC() != 0 {
+		return true
+	}
+	return C.isGlobalPassthroughC((C.HWND)(winPtr)) != 0
+}
+
+// OpaqueRegion 不透光矩形（相对于窗口客户区原点）。
+type OpaqueRegion struct {
+	X, Y, W, H int
+}
+
+// SetOpaqueRegions 设置不透光区域列表（精准穿透模式）。
+// JS 侧通过检测像素透明度或 CSS 标记，将不透光区域上报到原生层。
+// 设置后 WM_NCHITTEST 只在 opaque 区域内返回 HTCLIENT，其余区域返回 HTTRANSPARENT。
+//
+// 用法：
+//  1. 关闭全局穿透：DisableInputPassthrough(winPtr)
+//  2. 设置不透光区域：SetOpaqueRegions(winPtr, regions)
+//
+// 此时 WndProc（BorderlessWndProc 或 PassthroughWndProc）会根据区域列表
+// 决定哪些坐标穿透、哪些捕获。
+// 需在 Dispatch 回调中调用。
+func SetOpaqueRegions(winPtr unsafe.Pointer, regions []OpaqueRegion) {
+	if winPtr == nil {
+		return
+	}
+	C.clearOpaqueRegionsC()
+	for _, r := range regions {
+		C.addOpaqueRegionC(C.int(r.X), C.int(r.Y), C.int(r.W), C.int(r.H))
+	}
+}
+
+// ClearOpaqueRegions 清空不透光区域列表。
+// 清空后所有区域穿透（因为 opaqueRegionCount==0，WndProc 返回 HTTRANSPARENT）。
+// 需在 Dispatch 回调中调用。
+func ClearOpaqueRegions(winPtr unsafe.Pointer) {
+	if winPtr == nil {
+		return
+	}
+	C.clearOpaqueRegionsC()
+}
+
+// ———— 鼠标位置轮询 ————
+
+// PollCursorPos 保底轮询：GetCursorPos（WM_NCHITTEST 不触发时的后备）
+func PollCursorPos(winPtr unsafe.Pointer) (x, y int32) {
+	if winPtr == nil {
+		return -1, -1
+	}
+	var pt C.POINT
+	C.GetCursorPos(&pt)
+	C.ScreenToClient((C.HWND)(winPtr), &pt)
+	return int32(pt.x), int32(pt.y)
 }
 
 // HasDisplay 在 Windows 上始终返回 true（WebView2 无需 X11/Wayland）。

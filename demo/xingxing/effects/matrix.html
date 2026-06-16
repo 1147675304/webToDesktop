@@ -20,24 +20,11 @@
 <body>
     <canvas id="c"></canvas>
 
-    <div id="pwd-overlay" class="pwd-overlay" style="display:none">
-        <div class="pwd-dialog">
-            <h2 id="pwd-title">🔒 程序已锁定</h2>
-            <p id="pwd-msg">请输入密码以关闭程序</p>
-            <div id="pwd-info" class="pwd-info">
-                <div class="pwd-info-section"><strong>⌨ 快捷键</strong><ul><li><code>Alt+W</code> — 关闭</li><li><code>Alt+Tab</code> / <code>Alt+F4</code> / <code>Alt+Esc</code> — 已禁用</li><li><code>Ctrl+Esc</code> / <code>Ctrl+Shift+Esc</code> — 已禁用</li></ul></div>
-                <div class="pwd-info-section"><strong>🔑 按键映射</strong><ul><li><code>Super_L/R</code> → <code>Win</code></li><li><code>Alt_L/R</code> → <code>Alt</code></li><li><code>Control_L/R</code> → <code>Ctrl</code></li></ul></div>
-            </div>
-            <input id="pwd-input" type="password" placeholder="输入密码" autofocus />
-            <label class="pwd-remember"><input id="pwd-remember-cb" type="checkbox" /> 记住密码</label>
-            <p id="pwd-error" class="pwd-error" style="display:none">密码错误，请重试</p>
-            <div class="pwd-btns"><button id="pwd-confirm" class="pwd-btn primary">确认</button><button id="pwd-cancel" class="pwd-btn">取消</button></div>
-        </div>
-    </div>
-
     <script src="../bridge.js"></script>
+    <script src="../passthrough.js"></script>
     <script>
-        initBridge({ ready: startAnimation });
+        // ★ 效果页面是纯视觉叠加层，启用输入穿透让鼠标事件到达下层窗口
+        initBridge({ inputPassthrough: true, ready: startAnimation });
 
         function startAnimation() {
             var canvas = document.getElementById('c');
@@ -45,88 +32,103 @@
             var W, H;
 
             function resize() {
+                var dpr = window.devicePixelRatio || 1;
                 W = window.innerWidth;
                 H = window.innerHeight;
-                canvas.width = W;
-                canvas.height = H;
+                canvas.width = W * dpr;
+                canvas.height = H * dpr;
+                canvas.style.width = W + 'px';
+                canvas.style.height = H + 'px';
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             }
             resize();
-            window.addEventListener('resize', resize);
 
-            // 字符集：日文假名 + ASCII + 数字
-            var chars = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ<>/{}[]|&^%$#@!';
+            var chars = '0123456789';
 
-            var fontSize = 14;
-            var columns = Math.floor(W / fontSize);
+            var fontSize = 20;
+            var columns = 0;
+            var drops = [];   // { y, speed, len, pattern:[], delay, active }
 
-            // 每列的 drops（存储历史位置用于拖尾）
-            var drops = [];
-            for (var i = 0; i < columns; i++) {
-                drops[i] = {
-                    y: Math.random() * H,
-                    speed: 1 + Math.random() * 3,
-                    length: 5 + Math.floor(Math.random() * 20),
-                    trail: []  // [{y, char}, ...] 最近若干帧的位置
-                };
+            function initDrops() {
+                columns = Math.floor(W / fontSize);
+                drops.length = 0;
+                for (var i = 0; i < columns; i++) {
+                    var active = Math.random() < 0.35;
+                    // 每列固定 1~4 个字符循环，下落过程中字符不变
+                    var pat = [];
+                    var plen = 1 + Math.floor(Math.random() * 4);
+                    for (var k = 0; k < plen; k++) {
+                        pat.push(chars[Math.floor(Math.random() * chars.length)]);
+                    }
+                    drops.push({
+                        y: -(Math.random() * H * 2),
+                        speed: 0.8 + Math.random() * 1.8,
+                        len: 3 + Math.floor(Math.random() * 7),
+                        pattern: pat,
+                        delay: active ? Math.floor(Math.random() * 80) : 99999,
+                        active: active
+                    });
+                }
             }
+            initDrops();
 
-            function getChar() {
-                return chars[Math.floor(Math.random() * chars.length)];
-            }
-
-            // 主循环
             function loop() {
+                // 透明背景：不清屏则拖尾，清屏则清爽
                 ctx.clearRect(0, 0, W, H);
-                ctx.font = fontSize + 'px monospace';
+
+                ctx.font = 'bold ' + fontSize + 'px monospace';
+                ctx.textBaseline = 'top';
 
                 for (var i = 0; i < drops.length; i++) {
-                    var drop = drops[i];
+                    var d = drops[i];
+                    if (d.delay > 0) { d.delay--; continue; }
 
-                    // 每帧向下移动
-                    drop.y += drop.speed;
+                    d.y += d.speed;
 
-                    // 当前头部字符加入 trail
-                    drop.trail.unshift({ y: drop.y, ch: getChar() });
-                    // 只保留 length 个历史位置
-                    if (drop.trail.length > drop.length + 5) {
-                        drop.trail.length = drop.length + 5;
-                    }
-
-                    // 重置
-                    if (drop.y > H + drop.length * fontSize) {
-                        drop.y = -drop.length * fontSize;
-                        drop.speed = 1 + Math.random() * 4;
-                        drop.trail = [];
-                    }
-
-                    // 绘制拖尾（从旧到新）
-                    var trailLen = drop.trail.length;
-                    for (var t = trailLen - 1; t >= 0; t--) {
-                        var item = drop.trail[t];
-                        var charY = item.y;
+                    // 每列固定 pattern 循环，下落时字符不变
+                    for (var t = d.len - 1; t >= 0; t--) {
+                        var charY = d.y - t * fontSize;
                         if (charY < -fontSize || charY > H + fontSize) continue;
 
-                        // 根据位置计算 alpha：越旧越淡
-                        var age = trailLen - 1 - t;
-                        var alpha;
-                        if (age === 0) {
-                            alpha = 0.9;  // 头部亮白
-                            ctx.fillStyle = 'rgba(200, 255, 200, ' + alpha + ')';
-                        } else if (age < 4) {
-                            alpha = 0.7 - age * 0.1;
-                            ctx.fillStyle = 'rgba(100, 255, 100, ' + alpha + ')';
+                        // 从 pattern 中按位置取字符，循环重复
+                        var ch = d.pattern[t % d.pattern.length];
+
+                        var ratio = t / Math.max(1, d.len - 1);
+                        if (t === 0) {
+                            ctx.fillStyle = 'rgba(180,255,180,0.8)';
+                        } else if (t <= 1) {
+                            ctx.fillStyle = 'rgba(60,220,60,0.55)';
                         } else {
-                            alpha = Math.max(0.03, 1 - age / drop.length);
-                            ctx.fillStyle = 'rgba(0, 180, 0, ' + alpha + ')';
+                            var a = Math.max(0.06, (1 - ratio) * 0.4);
+                            ctx.fillStyle = 'rgba(0,160,0,' + a.toFixed(2) + ')';
                         }
 
-                        ctx.fillText(item.ch, i * fontSize, charY);
+                        ctx.fillText(ch, i * fontSize, charY);
+                    }
+
+                    if (d.y - d.len * fontSize > H) {
+                        d.y = -d.len * fontSize - Math.random() * 120;
+                        d.speed = 0.8 + Math.random() * 1.8;
+                        d.len = 3 + Math.floor(Math.random() * 7);
+                        d.delay = Math.floor(Math.random() * 60);
+                        // 刷新 pattern
+                        d.pattern.length = 0;
+                        var plen = 1 + Math.floor(Math.random() * 4);
+                        for (var k = 0; k < plen; k++) {
+                            d.pattern.push(chars[Math.floor(Math.random() * chars.length)]);
+                        }
                     }
                 }
 
                 requestAnimationFrame(loop);
             }
+
             loop();
+
+            window.addEventListener('resize', function() {
+                resize();
+                initDrops();
+            });
         }
     </script>
 </body>

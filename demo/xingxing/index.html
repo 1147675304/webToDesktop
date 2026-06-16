@@ -319,6 +319,11 @@
     <p class="subtitle">选择一个演示效果</p>
 
     <div class="effect-grid">
+        <a class="effect-card" href="effects/stars.html">
+            <h3>✨ 星空</h3>
+            <p>1200 颗闪烁星辰 + 流星划过夜空，纯粹的星空背景动画</p>
+            <span class="tag">Canvas 动画</span>
+        </a>
         <a class="effect-card" href="effects/solar-system.html">
             <h3>🌌 太阳系行星</h3>
             <p>九大行星环绕太阳运行，带星空背景和流星效果的沉浸式动画</p>
@@ -343,7 +348,9 @@
 
     <script src="bridge.js"></script>
     <script>
-        initBridge();
+        // ★ 启动器页面有交互元素（卡片可点击），必须禁用输入穿透
+        //    这样 WS_EX_TRANSPARENT 不会被设置，窗口正常捕获鼠标事件
+        initBridge({ inputPassthrough: false });
     </script>
 </body>
 </html>

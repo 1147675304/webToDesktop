@@ -44,3 +44,17 @@ func EnableKeyboardHook(winPtr unsafe.Pointer)                               {}
 func DisableKeyboardHook(winPtr unsafe.Pointer)                              {}
 func PollKbEvent() string                                                    { return "" }
 func syncBlockedKeysToC(keys []string)                                       {}
+func ToggleMinimize(winPtr unsafe.Pointer)                                   {}
+func EnableInputPassthrough(winPtr unsafe.Pointer)                           {}
+func DisableInputPassthrough(winPtr unsafe.Pointer)                          {}
+func IsInputPassthrough(winPtr unsafe.Pointer) bool                          { return false }
+
+// OpaqueRegion 不透光矩形（与 Windows 定义保持一致）。
+type OpaqueRegion struct {
+	X, Y, W, H int
+}
+
+func SetOpaqueRegions(winPtr unsafe.Pointer, regions []OpaqueRegion) {}
+func ClearOpaqueRegions(winPtr unsafe.Pointer)                       {}
+func PollPassthroughState(winPtr unsafe.Pointer)                     {}
+func PollCursorPos(winPtr unsafe.Pointer) (int32, int32)             { return -1, -1 }

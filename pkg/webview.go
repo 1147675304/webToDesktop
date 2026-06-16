@@ -349,6 +349,8 @@ func RunApp(addr, accessToken string, server *http.Server, store *Store, project
 		}()
 	}
 
+	// ★ 穿透：JS 每帧通过 bridge.getCursorPos 拉取鼠标坐标
+
 	go func() {
 		<-sigCh
 		dbg("signal received, terminating...")

@@ -49,9 +49,11 @@ window:
                         # ⚠️ 部分 Linux 桌面环境（如麒麟 UKUI）启用此项会导致
                         #    合成器崩溃，请确认你的桌面环境支持后再启用
                         # 启用 Acrylic 时自动视为 true
-  input_passthrough: true  # 透明区域点击穿透（Linux 专用）
-                        # true : 鼠标可穿过透明区域操作下层窗口
-                        # false: 所有点击由本窗口捕获（与 Windows 行为一致）
+  input_passthrough: true  # 透明区域点击穿透（鼠标穿过透明区域操作下层窗口）
+                        # true : 鼠标可穿过透明区域操作下层窗口（Win: WS_EX_TRANSPARENT）
+                        # false: 所有点击由本窗口捕获
+                        # ★ Windows 注意：WS_EX_TRANSPARENT 使整个窗口穿透（含不透明区域），
+                        #   如需精准控制，前端可通过 setInputPassthrough bridge 方法动态切换
 
   # ———— 键盘快捷键拦截 ————
   keyboard_shortcuts: true # 启用后拦截 Ctrl+S 和前端注册的快捷键

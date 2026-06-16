@@ -108,6 +108,16 @@ function initBridge(options) {
         e.preventDefault();
     }, { capture: true });
 
+    // 输入穿透控制（Windows: WS_EX_TRANSPARENT，Linux: input shape）
+    // options.inputPassthrough:
+    //   true  → 鼠标事件穿透到下层窗口（纯视觉叠加层，如效果页面）
+    //   false → 本窗口捕获所有鼠标事件（有交互元素的页面，如启动器）
+    //   不传  → 不改变当前穿透状态
+    if (options && typeof options.inputPassthrough === 'boolean') {
+        window.__wtd_passthroughActive = options.inputPassthrough;
+        window.__lhpanda__('setInputPassthrough', { enabled: options.inputPassthrough });
+    }
+
     // 效果页面的初始化回调
     if (options && options.ready) options.ready();
 }
@@ -115,6 +125,7 @@ function initBridge(options) {
 // ==================== 效果切换 ====================
 
 var EFFECTS = [
+    { file: 'stars.html',        name: '✨ 星空' },
     { file: 'solar-system.html', name: '🌌 太阳系' },
     { file: 'galaxy.html',       name: '✨ 粒子星系' },
     { file: 'aurora.html',       name: '🌌 极光' },

@@ -20,24 +20,11 @@
 <body>
     <canvas id="c"></canvas>
 
-    <div id="pwd-overlay" class="pwd-overlay" style="display:none">
-        <div class="pwd-dialog">
-            <h2 id="pwd-title">🔒 程序已锁定</h2>
-            <p id="pwd-msg">请输入密码以关闭程序</p>
-            <div id="pwd-info" class="pwd-info">
-                <div class="pwd-info-section"><strong>⌨ 快捷键</strong><ul><li><code>Alt+W</code> — 关闭</li><li><code>Alt+Tab</code> / <code>Alt+F4</code> / <code>Alt+Esc</code> — 已禁用</li><li><code>Ctrl+Esc</code> / <code>Ctrl+Shift+Esc</code> — 已禁用</li></ul></div>
-                <div class="pwd-info-section"><strong>🔑 按键映射</strong><ul><li><code>Super_L/R</code> → <code>Win</code></li><li><code>Alt_L/R</code> → <code>Alt</code></li><li><code>Control_L/R</code> → <code>Ctrl</code></li></ul></div>
-            </div>
-            <input id="pwd-input" type="password" placeholder="输入密码" autofocus />
-            <label class="pwd-remember"><input id="pwd-remember-cb" type="checkbox" /> 记住密码</label>
-            <p id="pwd-error" class="pwd-error" style="display:none">密码错误，请重试</p>
-            <div class="pwd-btns"><button id="pwd-confirm" class="pwd-btn primary">确认</button><button id="pwd-cancel" class="pwd-btn">取消</button></div>
-        </div>
-    </div>
-
     <script src="../bridge.js"></script>
+    <script src="../passthrough.js"></script>
     <script>
-        initBridge({ ready: startAnimation });
+        // ★ 效果页面是纯视觉叠加层，启用输入穿透让鼠标事件到达下层窗口
+        initBridge({ inputPassthrough: true, ready: startAnimation });
 
         function startAnimation() {
             var canvas = document.getElementById('c');

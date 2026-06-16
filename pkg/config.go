@@ -36,7 +36,7 @@ type WindowConfig struct {
 	AlwaysOnTop          bool              `yaml:"always_on_top"`
 	Opacity              float64           `yaml:"opacity"`
 	WebViewBgTransparent bool              `yaml:"webview_bg_transparent"`
-	InputPassthrough     bool              `yaml:"input_passthrough"`
+	InputPassthrough     bool              `yaml:"input_passthrough"` // 透明区域点击穿透
 	WindowPosition       string            `yaml:"window_position"`
 	DarkTitleBar         bool              `yaml:"dark_title_bar"`
 	RoundCorners         bool              `yaml:"round_corners"`

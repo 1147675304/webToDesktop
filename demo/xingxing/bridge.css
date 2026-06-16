@@ -1,1 +1,58 @@
-/* 样式已迁移至 index.html */
+/* =======================================================
+ * bridge.css — 所有效果页面共享样式
+ * ======================================================= */
+
+/* ———— 浮动工具栏（不透光区域示例） ————
+ * .wtd-opaque 类标记的元素会被 collectOpaqueRegions() 自动收集，
+ * 上报给原生层，WM_NCHITTEST 在这些区域内返回 HTCLIENT（正常交互），
+ * 区域外返回 HTTRANSPARENT（穿透到下层窗口）。
+ */
+.wtd-toolbar {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 999;
+    display: flex;
+    gap: 8px;
+    pointer-events: auto;
+}
+.wtd-toolbar button {
+    width: 36px;
+    height: 36px;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    color: rgba(255,255,255,0.85);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, border-color 0.15s;
+    pointer-events: auto;
+}
+.wtd-toolbar button:hover {
+    background: rgba(255,255,255,0.16);
+    border-color: rgba(255,255,255,0.35);
+}
+.wtd-toolbar button:active {
+    background: rgba(255,255,255,0.24);
+}
+.wtd-toolbar .wtd-btn-close {
+    color: rgba(255,100,100,0.85);
+}
+
+/* 效果名称标签 */
+.wtd-effect-label {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 999;
+    font-family: 'Arial', sans-serif;
+    font-size: 13px;
+    color: rgba(255,255,255,0.35);
+    pointer-events: none;
+    transition: opacity 0.5s;
+}

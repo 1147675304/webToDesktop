@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>太阳系 - 九大行星</title>
+    <title>星空</title>
     <link rel="stylesheet" href="../bridge.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -21,83 +21,6 @@
             pointer-events: none;
         }
 
-        .solar-system {
-            position: relative; width: 1200px; height: 1200px; z-index: 1;
-        }
-
-        .sun {
-            position: absolute; top: 50%; left: 50%;
-            width: 120px; height: 120px;
-            margin-left: -60px; margin-top: -60px;
-            background: radial-gradient(circle, #fff7a0 0%, #ffcc00 30%, #ff8800 60%, #ff4400 100%);
-            border-radius: 50%;
-            box-shadow: 0 0 90px #ffaa00, 0 0 180px #ff6600, 0 0 270px #ff4400, 0 0 360px #ff3300, 0 0 450px #ff2200;
-            z-index: 10;
-            animation: sunPulse 2s ease-in-out infinite alternate;
-        }
-        @keyframes sunPulse {
-            0% { box-shadow: 0 0 90px #ffaa00, 0 0 180px #ff6600, 0 0 270px #ff4400, 0 0 360px #ff3300, 0 0 450px #ff2200; }
-            100% { box-shadow: 0 0 120px #ffbb33, 0 0 225px #ff8833, 0 0 330px #ff5533, 0 0 420px #ff4422, 0 0 525px #ff3311; }
-        }
-
-        .orbit {
-            position: absolute; top: 50%; left: 50%;
-            border: 1px solid rgba(255,255,255,0.15); border-radius: 50%;
-            transform: translate(-50%,-50%); pointer-events: none;
-        }
-        .planet-spin { position: absolute; top: 50%; left: 50%; width: 0; height: 0; }
-        .planet { position: absolute; border-radius: 50%; transform: translate(-50%,-50%); }
-        .planet-name {
-            position: absolute; width: 90px; text-align: center;
-            color: rgba(255,255,255,0.8); font-size: 15px;
-            font-family: 'Arial', sans-serif; pointer-events: none;
-            white-space: nowrap; transform: translate(-50%,-50%);
-            text-shadow: 0 0 8px rgba(255,255,255,0.5);
-        }
-
-        .orbit-mercury { width: 150px; height: 150px; }
-        .spin-mercury { animation: spin 3s linear infinite; }
-        .planet-mercury { width: 12px; height: 12px; background: radial-gradient(circle at 30% 30%, #d4d4d4, #8a8a8a); top: 75px; left: 0; }
-
-        .orbit-venus { width: 225px; height: 225px; }
-        .spin-venus { animation: spin 5s linear infinite; }
-        .planet-venus { width: 21px; height: 21px; background: radial-gradient(circle at 30% 30%, #f5d57a, #c4953a); top: 112px; left: 0; }
-
-        .orbit-earth { width: 315px; height: 315px; }
-        .spin-earth { animation: spin 8s linear infinite; }
-        .planet-earth { width: 22px; height: 22px; background: radial-gradient(circle at 30% 30%, #6bb5ff, #2266cc); top: 158px; left: 0; }
-        .moon-orbit { position: absolute; width: 42px; height: 42px; border-radius: 50%; animation: moonSpin 2.5s linear infinite; }
-        .moon { position: absolute; width: 6px; height: 6px; background: #ddd; border-radius: 50%; top: 21px; left: 0; transform: translate(-50%,-50%); }
-        @keyframes moonSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-
-        .orbit-mars { width: 420px; height: 420px; }
-        .spin-mars { animation: spin 12s linear infinite; }
-        .planet-mars { width: 16px; height: 16px; background: radial-gradient(circle at 30% 30%, #e8784a, #993311); top: 210px; left: 0; }
-
-        .orbit-jupiter { width: 570px; height: 570px; }
-        .spin-jupiter { animation: spin 20s linear infinite; }
-        .planet-jupiter { width: 60px; height: 60px; background: radial-gradient(circle at 40% 40%, #f0d8a8, #c8a45c, #a08048); top: 285px; left: 0; box-shadow: 0 0 12px rgba(200,164,92,0.5); }
-        .jupiter-stripes { position: absolute; width: 100%; height: 100%; border-radius: 50%; background: repeating-linear-gradient(0deg, transparent, transparent 9%, rgba(180,130,60,0.4) 9%, rgba(180,130,60,0.4) 13%); top: 0; left: 0; }
-
-        .orbit-saturn { width: 720px; height: 720px; }
-        .spin-saturn { animation: spin 30s linear infinite; }
-        .planet-saturn { width: 51px; height: 51px; background: radial-gradient(circle at 40% 40%, #f5e6b8, #d4b870); top: 360px; left: 0; }
-        .saturn-ring { position: absolute; width: 80px; height: 24px; border-radius: 50%; border: 6px solid rgba(210,180,120,0.7); border-top-color: rgba(210,180,120,0.3); border-bottom-color: rgba(180,150,100,0.9); top: 50%; left: 50%; transform: translate(-50%,-50%) rotateX(75deg); pointer-events: none; }
-
-        .orbit-uranus { width: 855px; height: 855px; }
-        .spin-uranus { animation: spin 45s linear infinite; }
-        .planet-uranus { width: 39px; height: 39px; background: radial-gradient(circle at 40% 40%, #c8f0f8, #5bbbd4); top: 428px; left: 0; }
-
-        .orbit-neptune { width: 975px; height: 975px; }
-        .spin-neptune { animation: spin 60s linear infinite; }
-        .planet-neptune { width: 37px; height: 37px; background: radial-gradient(circle at 40% 40%, #6088ff, #2233aa); top: 488px; left: 0; }
-
-        .orbit-pluto { width: 1080px; height: 1080px; }
-        .spin-pluto { animation: spin 80s linear infinite; }
-        .planet-pluto { width: 10px; height: 10px; background: radial-gradient(circle at 30% 30%, #e8d8c8, #9a8a78); top: 540px; left: 0; }
-
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-
         .shooting-star {
             position: fixed; width: 2px; height: 2px;
             background: white; border-radius: 50%;
@@ -108,73 +31,12 @@
 <body>
     <canvas id="stars-canvas"></canvas>
 
-    <div class="solar-system">
-        <div class="sun"></div>
-
-        <div class="orbit orbit-mercury"></div>
-        <div class="planet-spin spin-mercury">
-            <div class="planet planet-mercury"></div>
-            <span class="planet-name" style="margin-left:6px;margin-top:12px;">水星</span>
-        </div>
-
-        <div class="orbit orbit-venus"></div>
-        <div class="planet-spin spin-venus">
-            <div class="planet planet-venus"></div>
-            <span class="planet-name" style="margin-left:10px;margin-top:18px;">金星</span>
-        </div>
-
-        <div class="orbit orbit-earth"></div>
-        <div class="planet-spin spin-earth">
-            <div class="planet planet-earth"><div class="moon-orbit"><div class="moon"></div></div></div>
-            <span class="planet-name" style="margin-left:12px;margin-top:18px;">地球</span>
-        </div>
-
-        <div class="orbit orbit-mars"></div>
-        <div class="planet-spin spin-mars">
-            <div class="planet planet-mars"></div>
-            <span class="planet-name" style="margin-left:9px;margin-top:15px;">火星</span>
-        </div>
-
-        <div class="orbit orbit-jupiter"></div>
-        <div class="planet-spin spin-jupiter">
-            <div class="planet planet-jupiter"><div class="jupiter-stripes"></div></div>
-            <span class="planet-name" style="margin-left:30px;margin-top:36px;font-size:17px;font-weight:bold;">木星</span>
-        </div>
-
-        <div class="orbit orbit-saturn"></div>
-        <div class="planet-spin spin-saturn">
-            <div class="planet planet-saturn"><div class="saturn-ring"></div></div>
-            <span class="planet-name" style="margin-left:25px;margin-top:30px;">土星</span>
-        </div>
-
-        <div class="orbit orbit-uranus"></div>
-        <div class="planet-spin spin-uranus">
-            <div class="planet planet-uranus"></div>
-            <span class="planet-name" style="margin-left:20px;margin-top:24px;">天王星</span>
-        </div>
-
-        <div class="orbit orbit-neptune"></div>
-        <div class="planet-spin spin-neptune">
-            <div class="planet planet-neptune"></div>
-            <span class="planet-name" style="margin-left:20px;margin-top:24px;">海王星</span>
-        </div>
-
-        <div class="orbit orbit-pluto"></div>
-        <div class="planet-spin spin-pluto">
-            <div class="planet planet-pluto"></div>
-            <span class="planet-name" style="margin-left:6px;margin-top:10px;">冥王星</span>
-        </div>
-    </div>
-
-    <!-- 共享桥接逻辑 -->
     <script src="../bridge.js"></script>
     <script src="../passthrough.js"></script>
-    <!-- 动画初始化 -->
     <script>
-        // ★ 效果页面是纯视觉叠加层，启用输入穿透让鼠标事件到达下层窗口
+        // ★ 效果页面是纯视觉叠加层，启用输入穿透
         initBridge({ inputPassthrough: true, ready: startAnimation });
 
-        // ======================== 太阳系动画 ========================
         function startAnimation() {
             var canvas = document.getElementById('stars-canvas');
             var ctx = canvas.getContext('2d');

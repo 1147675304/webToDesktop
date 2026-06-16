@@ -177,3 +177,146 @@ func (b *Bridge) HandleRestartApp(params map[string]interface{}) (interface{}, e
 
 	return map[string]interface{}{"ok": true}, nil
 }
+
+// handleGetCursorPos JS 每帧调用，获取鼠标在窗口客户区内的坐标。
+func (b *Bridge) HandleGetCursorPos(params map[string]interface{}) (interface{}, error) {
+	x, y := native.PollCursorPos(b.winPtr)
+	return map[string]interface{}{"x": x, "y": y}, nil
+}
+
+// HandleSetInputPassthrough 启用/禁用输入穿透（鼠标事件穿过透明区域）。
+//
+// JS 调用: window.__lhpanda__('setInputPassthrough', {enabled: true})
+// 返回:    {ok: true, enabled: true/false}
+//
+// 参数:
+//
+//	enabled (bool): true=启用穿透（鼠标可穿过本窗口操作下层），false=禁用穿透（正常捕获）
+//
+// 实现:
+//
+//	Windows → WS_EX_TRANSPARENT|WS_EX_LAYERED 全局穿透
+//	Linux   → 默认穿透，禁用时调用 setInputShapeFull 设置全窗口输入形状
+//
+// 注意:
+//   - WS_EX_TRANSPARENT 使整个窗口穿透（包括不透明区域），
+//     如需"仅透明区域穿透"，需配合前端 JS 检测透明度并动态调用此方法
+func (b *Bridge) HandleSetInputPassthrough(params map[string]interface{}) (interface{}, error) {
+	if b.wv == nil || b.winPtr == nil {
+		return nil, fmt.Errorf("窗口未就绪")
+	}
+	enabled, ok := params["enabled"].(bool)
+	if !ok {
+		return nil, fmt.Errorf("缺少 enabled 参数（bool）")
+	}
+	if b.lastPassthroughValid && enabled == b.lastPassthroughState {
+		return map[string]interface{}{"ok": true, "enabled": enabled, "changed": false}, nil
+	}
+	b.lastPassthroughState = enabled
+	b.lastPassthroughValid = true
+	if enabled {
+		b.wv.Dispatch(func() { native.EnableInputPassthrough(b.winPtr) })
+	} else {
+		b.wv.Dispatch(func() { native.DisableInputPassthrough(b.winPtr) })
+	}
+	return map[string]interface{}{"ok": true, "enabled": enabled, "changed": true}, nil
+}
+
+// HandleGetInputPassthrough 查询当前是否启用输入穿透。
+//
+// JS 调用: window.__lhpanda__('getInputPassthrough')
+// 返回:    {ok: true, enabled: true/false}
+func (b *Bridge) HandleGetInputPassthrough(params map[string]interface{}) (interface{}, error) {
+	if b.wv == nil || b.winPtr == nil {
+		return nil, fmt.Errorf("窗口未就绪")
+	}
+	enabled := native.IsInputPassthrough(b.winPtr)
+	return map[string]interface{}{"ok": true, "enabled": enabled}, nil
+}
+
+// HandleSetOpaqueRegions 设置不透光区域列表（精准穿透模式）。
+//
+//	JS 调用: window.__lhpanda__('setOpaqueRegions', {
+//	    regions: [{x:100, y:200, w:300, h:50}, {x:500, y:400, w:200, h:60}]
+//	})
+//
+// 返回:    {ok: true, count: 2}
+//
+// 参数:
+//
+//	regions (array): 不透光矩形数组，每个矩形为 {x, y, w, h}（相对于窗口客户区原点）
+//
+// 工作原理:
+//
+//  1. 移除 WS_EX_TRANSPARENT（全局穿透）
+//  2. 将矩形列表存入 C 层静态数组
+//  3. WM_NCHITTEST 中判断命中坐标：
+//     - 在不透光区域内 → HTCLIENT（正常捕获鼠标事件）
+//     - 不在不透光区域内 → HTTRANSPARENT（穿透到下层窗口）
+//
+// 适用场景:
+//   - 画布背景透明但上面有按钮/卡片等可交互元素
+//   - 需要"部分区域不穿透"的页面
+//
+// JS 侧获取不透光区域的方式:
+//  1. 遍历 DOM 中所有 pointer-events:auto 的元素，获取 getBoundingClientRect()
+//  2. 逐像素检测 getImageData() 的 Alpha 通道（性能开销大，不推荐）
+//  3. 预定义 CSS 类标记不透光区域，JS 收集其坐标
+func (b *Bridge) HandleSetOpaqueRegions(params map[string]interface{}) (interface{}, error) {
+	if b.wv == nil || b.winPtr == nil {
+		return nil, fmt.Errorf("窗口未就绪")
+	}
+
+	rawRegions, ok := params["regions"].([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("缺少 regions 参数（数组）")
+	}
+
+	regions := make([]native.OpaqueRegion, 0, len(rawRegions))
+	for _, item := range rawRegions {
+		r, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		x, _ := toInt(r["x"])
+		y, _ := toInt(r["y"])
+		w, _ := toInt(r["w"])
+		h, _ := toInt(r["h"])
+		if w > 0 && h > 0 {
+			regions = append(regions, native.OpaqueRegion{X: x, Y: y, W: w, H: h})
+		}
+	}
+
+	b.wv.Dispatch(func() { native.SetOpaqueRegions(b.winPtr, regions) })
+	return map[string]interface{}{"ok": true, "count": len(regions)}, nil
+}
+
+// HandleClearOpaqueRegions 清空不透光区域列表。
+//
+// JS 调用: window.__lhpanda__('clearOpaqueRegions')
+// 返回:    {ok: true}
+//
+// 清空后行为取决于 input_passthrough 配置：
+//   - 若配置为 true → 回退到全局穿透模式（WS_EX_TRANSPARENT）
+//   - 若配置为 false → 关闭所有穿透
+func (b *Bridge) HandleClearOpaqueRegions(params map[string]interface{}) (interface{}, error) {
+	if b.wv == nil || b.winPtr == nil {
+		return nil, fmt.Errorf("窗口未就绪")
+	}
+	b.wv.Dispatch(func() { native.ClearOpaqueRegions(b.winPtr) })
+	return map[string]interface{}{"ok": true}, nil
+}
+
+// toInt 将 interface{} 安全转为 int（支持 float64 和 int）。
+func toInt(v interface{}) (int, bool) {
+	switch val := v.(type) {
+	case float64:
+		return int(val), true
+	case int:
+		return val, true
+	case int64:
+		return int(val), true
+	default:
+		return 0, false
+	}
+}
