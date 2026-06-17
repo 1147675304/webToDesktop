@@ -1,20 +1,50 @@
 <template>
   <div>
     <h2><el-icon><Key /></el-icon> 键盘快捷键与按键映射</h2>
-    <p class="desc">系统提供两层按键拦截机制：<strong>按键映射</strong>（粗粒度，拦截单个修饰键）和<strong>组合快捷键注册</strong>（细粒度，拦截特定组合键），两者可协同工作。</p>
+    <p class="desc">系统提供<strong>三层</strong>按键控制机制，职责分离、互不干扰：</p>
+    <ul class="note-list">
+      <li><strong>浏览器快捷键禁用</strong>（JS 注入）：禁用 WebView 内置浏览器行为（Ctrl+S 保存网页等），仅影响当前应用</li>
+      <li><strong>按键映射</strong>（原生钩子，粗粒度）：拦截单个修饰键，一次性禁用该键的所有系统快捷键</li>
+      <li><strong>组合快捷键注册</strong>（原生钩子，细粒度）：拦截特定组合键，由应用消费不传递到系统</li>
+    </ul>
 
     <!-- ==================== 配置 ==================== -->
     <h3>配置</h3>
-    <p class="hint">在 <code>config.yaml</code> 中启用总开关（构建时嵌入，修改需重新构建），按键映射由前端动态管理：</p>
+    <p class="hint">在 <code>config.yaml</code> 中配置（构建时嵌入，修改需重新构建）：</p>
     <CodeBlock lang="yaml">window:
-  # 启用键盘快捷键拦截（总开关）
+  # 键盘钩子总开关（关闭后按键映射和组合快捷键注册均失效）
   keyboard_shortcuts: true
+
+  # 禁用浏览器内置快捷键（JS 注入，与键盘钩子无关）
+  # 即使 keyboard_shortcuts: false，此项仍生效
+  # 禁用列表：Ctrl+S（保存网页）、Ctrl+P（打印）、Ctrl+U（查看源码）、F12（开发者工具）
+  disable_browser_shortcuts: true
+
+  # 默认拦截的快捷键列表（钩子安装时自动注册，仅 keyboard_shortcuts=true 时生效）
+  # 设为 [] 则不拦截任何默认快捷键
+  default_blocked_shortcuts:
+    - "Ctrl+S"
 
   # 按键映射由前端通过 bridge.setKeyMapping 动态管理
   key_mappings: {}</CodeBlock>
 
-    <!-- ==================== 两层拦截机制 ==================== -->
-    <h3>两层拦截机制</h3>
+    <!-- ==================== ① 浏览器快捷键禁用 ==================== -->
+    <h3>① 浏览器快捷键禁用（JS 注入）</h3>
+    <p class="hint">通过 JS 注入禁用 WebView 内置浏览器快捷键，<strong>仅影响当前应用</strong>，不影响系统其他应用。与键盘钩子无关，即使 <code>keyboard_shortcuts: false</code> 仍可生效。</p>
+    <table class="api-table">
+      <thead><tr><th>快捷键</th><th>浏览器默认行为</th><th>禁用后效果</th></tr></thead>
+      <tbody>
+        <tr><td><code>Ctrl+S</code></td><td>保存网页为 HTML</td><td>不弹出保存对话框</td></tr>
+        <tr><td><code>Ctrl+P</code></td><td>打印网页</td><td>不弹出打印对话框</td></tr>
+        <tr><td><code>Ctrl+U</code></td><td>查看网页源码</td><td>不跳转源码页</td></tr>
+        <tr><td><code>F12</code></td><td>打开开发者工具</td><td>不打开 DevTools</td></tr>
+      </tbody>
+    </table>
+    <p class="hint">配置方式：<code>config.yaml</code> → <code>disable_browser_shortcuts: true/false</code>（构建时配置）。前端如需自定义保存/打印逻辑，可自行监听 <code>keydown</code> 事件（注入的 <code>preventDefault</code> 仅阻止浏览器默认行为，不阻止前端自定义处理）。</p>
+
+    <!-- ==================== ②③ 原生钩子拦截 ==================== -->
+    <h3>②③ 原生钩子拦截（需 keyboard_shortcuts: true）</h3>
+    <p class="hint">以下两种机制依赖底层键盘钩子（Windows <code>WH_KEYBOARD_LL</code> / Linux GTK <code>key-press-event</code>），<strong>全局拦截</strong>指定按键使其不传递到系统。</p>
 
     <h4>① 按键映射（Key Mapping）</h4>
     <p class="hint">将修饰键（<code>Super_L</code>、<code>Alt_L</code>、<code>Control_L</code> 等）映射为自定义名称。映射实质是将该按键注册为快捷键（<code>RegisterShortcut</code>），使其被钩子拦截。<strong>所有基于该修饰键的系统快捷键全部失效</strong>。例如映射 <code>Super_L</code> 后，<code>Win+D</code>、<code>Win+R</code>、<code>Win+E</code> 等全部被禁用，无需逐个注册。</p>
@@ -25,13 +55,15 @@
     <p class="hint">即使修饰键已被映射，组合键仍可正常工作：<code>GetAsyncKeyState</code>（Windows）或 <code>event->state</code>（Linux）检测的是<strong>物理按键状态</strong>，不受映射拦截影响。</p>
 
     <h4>默认拦截</h4>
+    <p class="hint">默认拦截列表由 <code>config.yaml</code> 中的 <code>default_blocked_shortcuts</code> 定义，构建时嵌入二进制。钩子安装时自动注册这些快捷键。</p>
+    <p class="hint"><strong>注意：</strong>Ctrl+S 的浏览器保存行为由 <code>disable_browser_shortcuts</code>（JS 注入）处理，无需在 <code>default_blocked_shortcuts</code> 中配置。仅在需要<strong>全局拦截</strong> Ctrl+S（阻止所有应用接收）时才加入此列表。</p>
     <table class="api-table">
-      <thead><tr><th>快捷键</th><th>说明</th></tr></thead>
+      <thead><tr><th>场景</th><th>配置方式</th><th>影响范围</th></tr></thead>
       <tbody>
-        <tr><td><code>Ctrl+S</code></td><td>禁止保存页面</td></tr>
+        <tr><td>仅禁用 WebView 保存对话框</td><td><code>disable_browser_shortcuts: true</code></td><td>仅当前应用</td></tr>
+        <tr><td>全局拦截 Ctrl+S</td><td><code>default_blocked_shortcuts: ["Ctrl+S"]</code></td><td>整个系统</td></tr>
       </tbody>
     </table>
-    <p class="hint">更多快捷键（<code>Alt+Tab</code>、<code>Alt+F4</code>、<code>Super_L</code> 等）需通过 <code>registerShortcut</code> 或 <code>setKeyMapping</code> 动态注册。</p>
 
     <!-- ==================== 组合快捷键 API ==================== -->
     <h3>组合快捷键 API</h3>

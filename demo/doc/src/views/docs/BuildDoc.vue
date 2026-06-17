@@ -162,7 +162,9 @@ BUILD_TAGS=minimal             # 仅核心模块
         <tr><td><code>acrylic</code></td><td>bool</td><td>false</td><td>毛玻璃背景 (Win)</td></tr>
         <tr><td><code>round_corners</code></td><td>bool</td><td>true</td><td>圆角窗口 (Win11)</td></tr>
         <tr><td><code>dark_title_bar</code></td><td>bool</td><td>false</td><td>暗色标题栏 (Win10+)</td></tr>
-        <tr><td><code>keyboard_shortcuts</code></td><td>bool</td><td>false</td><td>拦截 Ctrl+S 和前端注册的快捷键（跨平台）</td></tr>
+        <tr><td><code>keyboard_shortcuts</code></td><td>bool</td><td>false</td><td>启用键盘钩子（总开关，关闭后所有快捷键拦截失效）</td></tr>
+        <tr><td><code>disable_browser_shortcuts</code></td><td>bool</td><td>true</td><td>禁用 WebView 浏览器内置快捷键（Ctrl+S/P/U、F12），仅 JS 层，不影响系统</td></tr>
+        <tr><td><code>default_blocked_shortcuts</code></td><td>string[]</td><td>["Ctrl+S"]</td><td>默认拦截的快捷键列表（构建时配置，可动态调整）</td></tr>
       </tbody>
     </table>
 

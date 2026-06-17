@@ -40,7 +40,7 @@ func SetDefaultWindowSize(width, height int)                                 {}
 func SetWindowIcon(winPtr unsafe.Pointer, iconPath string)                   {}
 func SetDefaultAppIcon(iconPath string)                                      {}
 func DisableWebKitHardwareAccel(winPtr unsafe.Pointer)                       {}
-func EnableKeyboardHook(winPtr unsafe.Pointer)                               {}
+func EnableKeyboardHook(winPtr unsafe.Pointer, defaults []string)            {}
 func DisableKeyboardHook(winPtr unsafe.Pointer)                              {}
 func PollKbEvent() string                                                    { return "" }
 func syncBlockedKeysToC(keys []string)                                       {}

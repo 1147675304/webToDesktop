@@ -14,9 +14,10 @@ package native
 import "sync"
 
 var (
-	mu          sync.RWMutex
-	shortcuts   = make(map[string]bool)   // key: "Alt+Tab", value: true=消费
-	keyMappings = make(map[string]string) // key: "Super_L", value: "Win"
+	mu               sync.RWMutex
+	shortcuts        = make(map[string]bool)   // key: "Alt+Tab", value: true=消费
+	keyMappings      = make(map[string]string) // key: "Super_L", value: "Win"
+	defaultShortcuts []string                  // 构建时配置的默认拦截列表
 )
 
 // RegisterShortcut 注册一个应用快捷键。
@@ -77,13 +78,16 @@ func RegisterShortcuts(keys []string) {
 	syncBlockedKeysToC(allKeys)
 }
 
-// InitDefaultBlockedShortcuts 初始化默认需要拦截的系统快捷键。
-// 在键盘快捷键拦截启用时调用。
-func InitDefaultBlockedShortcuts() {
+// InitDefaultBlockedShortcuts 用构建时配置的默认列表初始化快捷键拦截。
+// 在键盘钩子安装时调用（EnableKeyboardHook）。
+// 注意：不会清除已有的快捷键注册（如 InitKeyMappings 提前注入的按键映射），
+// 仅在现有基础上追加默认拦截项。
+func InitDefaultBlockedShortcuts(defaults []string) {
 	mu.Lock()
-	defaults := []string{
-		"Ctrl+S", // 禁止保存页面
-	}
+	// 保存默认列表供 ResetShortcuts 使用
+	defaultShortcuts = make([]string, len(defaults))
+	copy(defaultShortcuts, defaults)
+	// 追加默认项到现有 shortcuts（不覆盖已有的按键映射等注册）
 	for _, k := range defaults {
 		shortcuts[k] = true
 	}
@@ -92,14 +96,11 @@ func InitDefaultBlockedShortcuts() {
 	syncBlockedKeysToC(keys)
 }
 
-// ResetShortcuts 重置快捷键列表为默认值。
+// ResetShortcuts 重置快捷键列表为构建时配置的默认值。
 func ResetShortcuts() {
 	mu.Lock()
-	newMap := make(map[string]bool)
-	defaults := []string{
-		"Ctrl+S",
-	}
-	for _, k := range defaults {
+	newMap := make(map[string]bool, len(defaultShortcuts))
+	for _, k := range defaultShortcuts {
 		newMap[k] = true
 	}
 	shortcuts = newMap

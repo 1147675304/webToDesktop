@@ -117,7 +117,9 @@ projects:
 
 - `window.borderless: true` 无边框窗口
 - `window.acrylic: false` Windows 毛玻璃
-- `window.keyboard_shortcuts: true` 启用键盘快捷键拦截
+- `window.keyboard_shortcuts: true` 启用键盘钩子（总开关，关闭后所有快捷键拦截和按键映射均失效）
+- `window.disable_browser_shortcuts: true` 禁用 WebView 浏览器内置快捷键（Ctrl+S/P/U、F12），JS 注入，仅影响当前应用
+- `window.default_blocked_shortcuts` 默认拦截的快捷键列表（构建时配置，设为 `[]` 可禁用默认拦截）
 - `window.system_tray: true` 启用系统托盘（关闭→隐藏到托盘）
 - `window.tray_hide_taskbar: true` 托盘模式下隐藏任务栏图标
 - `window.key_mappings` 按键映射（由前端通过 `setKeyMapping` 动态管理，config.yaml 中留空）
@@ -139,9 +141,15 @@ projects:
 
 ### 键盘快捷键拦截
 
-启用 `keyboard_shortcuts: true` 后，程序使用 `WH_KEYBOARD_LL`（Windows）或 GTK `key-press-event`（Linux）拦截指定的键盘快捷键。
+系统提供**三层**按键控制机制，职责分离：
 
-系统提供两层拦截机制：**按键映射**（粗粒度）和**组合快捷键注册**（细粒度）。
+| 层级 | 机制 | 实现方式 | 影响范围 |
+|------|------|----------|----------|
+| ① 浏览器快捷键禁用 | `disable_browser_shortcuts` | JS 注入 `preventDefault` | 仅当前 WebView |
+| ② 按键映射 | `key_mappings` + bridge API | 原生键盘钩子 | 全局系统 |
+| ③ 组合快捷键注册 | bridge API | 原生键盘钩子 | 全局系统 |
+
+**关键区别：** 层级①仅阻止 WebView 浏览器行为（Ctrl+S 保存网页等），不影响系统其他应用；层级②③通过全局钩子拦截按键，被拦截的键不会传递到任何应用。
 
 #### 按键映射（禁用整类系统快捷键）
 
@@ -168,11 +176,9 @@ await window.__lhpanda__('resetShortcuts')
 
 #### 默认拦截
 
-| 快捷键 | 说明 |
-|--------|------|
-| `Ctrl+S` | 禁止保存页面 |
+默认拦截列表由 `config.yaml` 的 `default_blocked_shortcuts` 定义。钩子安装时自动注册。
 
-> 更多快捷键（`Alt+Tab`、`Alt+F4`、`Super_L` 等）需通过前端 API 动态注册。
+> **注意：** Ctrl+S 的浏览器保存行为推荐通过 `disable_browser_shortcuts: true`（JS 注入）禁用，仅影响当前应用。仅在需要全局拦截 Ctrl+S 时才加入 `default_blocked_shortcuts`。
 
 #### 事件监听
 

@@ -111,9 +111,9 @@ func writeLog(msg string) {
 }
 
 // buildInjectJS 构建注入到 WebView 的初始化 JS。
-// 包含 CSS 注入、右键菜单控制、选中复制、以及访问令牌管理。
+// 包含 CSS 注入、右键菜单控制、浏览器快捷键禁用、选中复制、以及访问令牌管理。
 // accessToken 为空字符串时不注入令牌逻辑。
-func buildInjectJS(css string, disableCtxMenu bool, accessToken string) string {
+func buildInjectJS(css string, disableCtxMenu bool, disableBrowserShortcuts bool, accessToken string) string {
 	js := `(function injectCSS(){
 		if (!document.head) { setTimeout(injectCSS, 10); return; }
 		var s=document.createElement('style');
@@ -122,6 +122,20 @@ func buildInjectJS(css string, disableCtxMenu bool, accessToken string) string {
 	if disableCtxMenu && !debugMode {
 		js += `
 		document.addEventListener('contextmenu', function(e){ e.preventDefault(); });`
+	}
+	if disableBrowserShortcuts {
+		js += `
+		/* 禁用 WebView 浏览器内置快捷键（不影响系统其他应用） */
+		document.addEventListener('keydown', function(e){
+			if (e.ctrlKey && !e.altKey && !e.metaKey) {
+				switch (e.key) {
+					case 's': e.preventDefault(); break; /* Ctrl+S 保存网页 */
+					case 'p': e.preventDefault(); break; /* Ctrl+P 打印 */
+					case 'u': e.preventDefault(); break; /* Ctrl+U 查看源码 */
+				}
+			}
+			if (e.key === 'F12') { e.preventDefault(); } /* 开发者工具 */
+		});`
 	}
 	js += `
 		/* 选中文本自动复制到剪贴板 */
@@ -265,21 +279,22 @@ func RunApp(addr, accessToken string, server *http.Server, store *Store, project
 	}
 
 	winCfg := native.WindowConfig{
-		Opacity:              AppCfg.Window.Opacity,
-		Borderless:           AppCfg.Window.Borderless,
-		AlwaysOnTop:          AppCfg.Window.AlwaysOnTop,
-		Fullscreen:           AppCfg.Window.Fullscreen,
-		Maximized:            AppCfg.Window.Maximized,
-		WindowPosition:       AppCfg.Window.WindowPosition,
-		DarkTitleBar:         AppCfg.Window.DarkTitleBar,
-		RoundCorners:         AppCfg.Window.RoundCorners,
-		Acrylic:              AppCfg.Window.Acrylic,
-		WebViewBgTransparent: (AppCfg.Window.Acrylic && runtime.GOOS == "windows") || AppCfg.Window.WebViewBgTransparent,
-		InputPassthrough:     AppCfg.Window.InputPassthrough,
-		SystemTray:           AppCfg.Window.SystemTray,
-		TrayHideTaskbar:      AppCfg.Window.TrayHideTaskbar,
-		KeyboardShortcuts:    AppCfg.Window.KeyboardShortcuts,
-		KeyMappings:          AppCfg.Window.KeyMappings,
+		Opacity:                 AppCfg.Window.Opacity,
+		Borderless:              AppCfg.Window.Borderless,
+		AlwaysOnTop:             AppCfg.Window.AlwaysOnTop,
+		Fullscreen:              AppCfg.Window.Fullscreen,
+		Maximized:               AppCfg.Window.Maximized,
+		WindowPosition:          AppCfg.Window.WindowPosition,
+		DarkTitleBar:            AppCfg.Window.DarkTitleBar,
+		RoundCorners:            AppCfg.Window.RoundCorners,
+		Acrylic:                 AppCfg.Window.Acrylic,
+		WebViewBgTransparent:    (AppCfg.Window.Acrylic && runtime.GOOS == "windows") || AppCfg.Window.WebViewBgTransparent,
+		InputPassthrough:        AppCfg.Window.InputPassthrough,
+		SystemTray:              AppCfg.Window.SystemTray,
+		TrayHideTaskbar:         AppCfg.Window.TrayHideTaskbar,
+		KeyboardShortcuts:       AppCfg.Window.KeyboardShortcuts,
+		DefaultBlockedShortcuts: AppCfg.Window.DefaultBlockedShortcuts,
+		KeyMappings:             AppCfg.Window.KeyMappings,
 	}
 
 	dbg("STEP-4: ApplyPreShow (borderless=%v, opactiy=%.1f, transparent=%v, keeptop=%v)",
@@ -306,7 +321,7 @@ func RunApp(addr, accessToken string, server *http.Server, store *Store, project
 	}
 
 	dbg("STEP-6: Init (inject CSS + access token)")
-	w.Init(buildInjectJS(injectCSS, DisableContextmenu, accessToken))
+	w.Init(buildInjectJS(injectCSS, DisableContextmenu, AppCfg.Window.DisableBrowserShortcuts, accessToken))
 	dbg("STEP-6: ok")
 
 	dbg("STEP-7: Navigate")
@@ -346,7 +361,7 @@ func RunApp(addr, accessToken string, server *http.Server, store *Store, project
 			dbg("keyboard hook will install after %v", delay)
 			time.Sleep(delay)
 			w.Dispatch(func() {
-				native.EnableKeyboardHook(w.Window())
+				native.EnableKeyboardHook(w.Window(), AppCfg.Window.DefaultBlockedShortcuts)
 			})
 		}()
 	}

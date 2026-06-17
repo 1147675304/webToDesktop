@@ -848,13 +848,7 @@ static LRESULT CALLBACK KeyboardHookProc(int nCode, WPARAM wParam, LPARAM lParam
         DWORD vk = pKb->vkCode;
 
         if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN) {
-            // ★ 硬编码：Ctrl+S 总是拦截
-            if (vk == 'S' && (dyn_GetAsyncKeyState(VK_CONTROL) & 0x8000) && !(dyn_GetAsyncKeyState(VK_SHIFT) & 0x8000)) {
-                pushKbEvent("Ctrl+S");
-                return 1;
-            }
-
-            // ★ 动态注册中心（前端通过 bridge 注册的快捷键）
+            // ★ 动态注册中心（前端通过 bridge 注册的快捷键 + 默认拦截列表）
             if (checkDynamicRegistry(vk, pKb->flags)) {
                 return 1;
             }
@@ -1284,12 +1278,13 @@ func syncKeyMappingsToC(mappings map[string]string) {}
 
 // EnableKeyboardHook 安装低层键盘钩子拦截注册的快捷键。
 // 必须在 UI 线程（具有消息循环）上调用，典型调用位置为 w.Dispatch 回调中。
-func EnableKeyboardHook(winPtr unsafe.Pointer) {
+// defaults: 构建时配置的默认拦截快捷键列表。
+func EnableKeyboardHook(winPtr unsafe.Pointer, defaults []string) {
 	if winPtr == nil {
 		return
 	}
 	// 初始化默认快捷键并同步到 C 层
-	InitDefaultBlockedShortcuts()
+	InitDefaultBlockedShortcuts(defaults)
 
 	// 安装钩子并检查结果
 	ret := C.enableKeyboardHook()

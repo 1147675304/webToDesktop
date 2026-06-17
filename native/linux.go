@@ -438,13 +438,7 @@ static gboolean keyboardPressHandler(GtkWidget *widget, GdkEventKey *event, gpoi
     guint kv = event->keyval;
     guint st = event->state;
 
-    // Ctrl+S 总是拦截
-    if ((st & GDK_CONTROL_MASK) && kv == 's' && !(st & GDK_SHIFT_MASK)) {
-        pushKbEvent("Ctrl+S");
-        return TRUE;
-    }
-
-    // ★ 检查动态注册中心（支持前端自定义快捷键）
+    // ★ 检查动态注册中心（支持前端自定义快捷键和默认拦截列表）
     if (checkDynamicRegistry(kv, st)) {
         return TRUE;
     }
@@ -940,12 +934,13 @@ func syncKeyMappingsToC(mappings map[string]string) {}
 
 // EnableKeyboardHook 安装 GTK 按键拦截 + X11 全局键盘抓取。
 // 在 w.Dispatch 回调中调用（需在 UI 线程）。
-func EnableKeyboardHook(winPtr unsafe.Pointer) {
+// defaults: 构建时配置的默认拦截快捷键列表。
+func EnableKeyboardHook(winPtr unsafe.Pointer, defaults []string) {
 	if winPtr == nil {
 		return
 	}
 	// 初始化默认快捷键
-	InitDefaultBlockedShortcuts()
+	InitDefaultBlockedShortcuts(defaults)
 	C.enableKeyboardHook((*C.GtkWindow)(winPtr))
 }
 

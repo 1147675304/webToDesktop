@@ -27,24 +27,26 @@ type SecurityConfig struct {
 }
 
 type WindowConfig struct {
-	Title                string            `yaml:"title"`
-	Width                int               `yaml:"width"`
-	Height               int               `yaml:"height"`
-	Fullscreen           bool              `yaml:"fullscreen"`
-	Maximized            bool              `yaml:"maximized"`
-	Borderless           bool              `yaml:"borderless"`
-	AlwaysOnTop          bool              `yaml:"always_on_top"`
-	Opacity              float64           `yaml:"opacity"`
-	WebViewBgTransparent bool              `yaml:"webview_bg_transparent"`
-	InputPassthrough     bool              `yaml:"input_passthrough"` // 透明区域点击穿透
-	SystemTray           bool              `yaml:"system_tray"`       // 系统托盘：关闭时隐藏到托盘
-	TrayHideTaskbar      bool              `yaml:"tray_hide_taskbar"` // 托盘模式下隐藏任务栏图标
-	WindowPosition       string            `yaml:"window_position"`
-	DarkTitleBar         bool              `yaml:"dark_title_bar"`
-	RoundCorners         bool              `yaml:"round_corners"`
-	Acrylic              bool              `yaml:"acrylic"`
-	KeyboardShortcuts    bool              `yaml:"keyboard_shortcuts"`
-	KeyMappings          map[string]string `yaml:"key_mappings"`
+	Title                   string            `yaml:"title"`
+	Width                   int               `yaml:"width"`
+	Height                  int               `yaml:"height"`
+	Fullscreen              bool              `yaml:"fullscreen"`
+	Maximized               bool              `yaml:"maximized"`
+	Borderless              bool              `yaml:"borderless"`
+	AlwaysOnTop             bool              `yaml:"always_on_top"`
+	Opacity                 float64           `yaml:"opacity"`
+	WebViewBgTransparent    bool              `yaml:"webview_bg_transparent"`
+	InputPassthrough        bool              `yaml:"input_passthrough"` // 透明区域点击穿透
+	SystemTray              bool              `yaml:"system_tray"`       // 系统托盘：关闭时隐藏到托盘
+	TrayHideTaskbar         bool              `yaml:"tray_hide_taskbar"` // 托盘模式下隐藏任务栏图标
+	WindowPosition          string            `yaml:"window_position"`
+	DarkTitleBar            bool              `yaml:"dark_title_bar"`
+	RoundCorners            bool              `yaml:"round_corners"`
+	Acrylic                 bool              `yaml:"acrylic"`
+	KeyboardShortcuts       bool              `yaml:"keyboard_shortcuts"`
+	DisableBrowserShortcuts bool              `yaml:"disable_browser_shortcuts"`
+	DefaultBlockedShortcuts []string          `yaml:"default_blocked_shortcuts"`
+	KeyMappings             map[string]string `yaml:"key_mappings"`
 }
 
 type ProjectConfig struct {

@@ -3,95 +3,77 @@
 # 构建时通过 embed 嵌入二进制，运行时无需此文件
 # ============================================================
 
-# 应用基本信息
+# ———— 应用基本信息 ————
 app:
   name: "WebToDesktop"
   version: "1.0.0"
 
-# 安全配置
+# ———— 安全配置 ————
 security:
   # AES-256 加密密钥（任意字符串，构建时自动 SHA256 派生为 32 字节密钥）
   # ★ 开源用户必须修改此密钥！修改后旧的 credentials.dat 将无法解密
   aes_key: "lhpanda-webtodesktop-2026"
 
 # ============================================================
-# 窗口外观配置
+# 窗口配置
 # ============================================================
-# 以下配置构建时嵌入二进制，修改后需重新构建才能生效
-#
-# ★ 重要：若 borderless: true，前端必须做以下适配（详见注释）：
-#   - App.vue 中添加拖拽条、resize 手柄、窗口控制按钮
-#   - Layout.vue 中 el-header 添加 @mousedown.self 拖拽支持
-# ============================================================
+# ★ borderless=true 时前端需适配：拖拽条、resize 手柄、窗口控制按钮
 window:
   title: "后台管理系统"
   width: 1366
   height: 768
 
-  # ———— 窗口状态（三选一，优先级: fullscreen > maximized > 普通） ————
-  # ⚠️涉及按键拦截类程序打包完成测试前请勿使用全屏，避免无法关闭程序
-  fullscreen: true     # 全屏：覆盖整个显示器（含任务栏），隐藏一切边框
-  maximized: false      # 最大化：填充工作区（保留任务栏）
-                        # 若都为 false → 普通窗口（width x height）
+  # ———— 窗口状态（优先级: fullscreen > maximized > 普通） ————
+  fullscreen: true         # 全屏（覆盖整个显示器含任务栏）
+  maximized: false         # 最大化（保留任务栏）
+                           # 两者均为 false → 普通窗口（width × height）
 
-  # ———— 窗口样式 ————
-  borderless: true      # 无边框窗口（隐藏标题栏）
-                        # ★ 若为 true，前端 APP.vue 需包含：
-                        #   - drag-bar 拖拽条（8px 顶部）
-                        #   - resize 手柄（左/右/下/左下/右下 5个边角）
-                        #   - win-controls 窗口控制按钮（最大化/全屏/关闭）
-  always_on_top: true   # 窗口始终置顶于其他窗口之上
-  opacity: 0.99       # 窗口整体不透明度（0.0=全透明，1.0=不透明）
-                        # 前端无需适配
-  webview_bg_transparent: true  # 控件背景透明（实验性功能，仅 GNOME/KDE 测试通过）
-                        # true : 控件背景透明，毛玻璃可透过网页透明区域显示
-                        # false: 控件背景不透明，网页正常渲染不受影响
-                        # ⚠️ 部分 Linux 桌面环境（如麒麟 UKUI）启用此项会导致
-                        #    合成器崩溃，请确认你的桌面环境支持后再启用
-                        # 启用 Acrylic 时自动视为 true
-  input_passthrough: true  # 透明区域点击穿透（鼠标穿过透明区域操作下层窗口）
-                        # true : 鼠标可穿过透明区域操作下层窗口（Win: WS_EX_TRANSPARENT）
-                        # false: 所有点击由本窗口捕获
-                        # ★ Windows 注意：WS_EX_TRANSPARENT 使整个窗口穿透（含不透明区域），
-                        #   如需精准控制，前端可通过 setInputPassthrough bridge 方法动态切换
-  system_tray: true       # 系统托盘模式：关闭窗口时最小化到托盘图标而非退出程序
-                        # true : 点击关闭按钮隐藏窗口到系统托盘，托盘图标右键可退出
-                        # false: 点击关闭按钮直接退出程序
-  tray_hide_taskbar: true # 托盘模式下隐藏任务栏图标（仅 Windows + system_tray=true 生效）
-                        # true : 窗口不出现在任务栏，仅系统托盘可见
-                        # false: 窗口同时在任务栏和系统托盘显示
+  # ———— 窗口外观 ————
+  borderless: true         # 无边框窗口（隐藏标题栏）
+  always_on_top: true      # 窗口始终置顶
+  opacity: 0.99            # 不透明度 (0.0=全透明, 1.0=不透明)
+  window_position: "center" # 窗口位置: ""=系统决定 / "center"=居中 / "x,y"=绝对坐标
 
-  # ———— 键盘快捷键拦截 ————
-  keyboard_shortcuts: true # 启用后拦截 Ctrl+S 和前端注册的快捷键
+  # WebView 背景透明（实验性，仅 GNOME/KDE 测试通过）
+  webview_bg_transparent: true
 
-  # ———— 按键映射（禁用操作系统级快捷键） ————
-  # 将物理按键映射为自定义名称，映射后的按键将被钩子拦截（不传递到系统），
-  # 同时以映射名触发 keyboard-shortcut 事件供前端使用。
-  # 通过映射修饰键（Super_L/Alt_L/Control_L）可以一次性禁用该键的所有系统快捷键组合，
-  # 无需逐个注册 "Super_L+D"、"Super_L+R" 等。
-  # 格式: "物理按键名": "映射名"
-  # 按键映射由前端通过 bridge.setKeyMapping 动态管理
-  # 示例: window.__lhpanda__('setKeyMapping', {key: 'Super_L', mappedName: 'Win'})
-  key_mappings: {}
+  # 透明区域点击穿透
+  # ★ Windows: WS_EX_TRANSPARENT 使整个窗口穿透，可通过 bridge.setInputPassthrough 动态切换
+  input_passthrough: true
 
-  # ———— 窗口位置（仅非最大化/非全屏时生效） ————
-  # 支持格式：
-  #   ""              空字符串 → 由操作系统决定位置
-  #   "center"        居中显示
-  #   "100,200"       绝对坐标 (x, y)
-  window_position: "center"
+  # ———— 系统托盘 ————
+  system_tray: true        # 关闭窗口 → 隐藏到托盘而非退出
+  tray_hide_taskbar: true  # 托盘模式下隐藏任务栏图标（仅 Windows）
 
-  # ———— Windows 专属效果（仅 Windows 平台生效） ————
-  dark_title_bar: true  # 暗色标题栏（Win10 1809+），前端无需适配
-  round_corners: true   # 圆角窗口（Win11），前端无需适配
-  acrylic: true       # Acrylic 毛玻璃背景（仅 Windows 生效），前端无需适配
+  # ———— 键盘控制 ————
+  keyboard_shortcuts: true  # 键盘钩子总开关（关闭后按键映射和组合快捷键注册均失效）
+
+  # 禁用 WebView 浏览器内置快捷键（JS 注入，仅影响当前应用）
+  # 禁用: Ctrl+S（保存网页）、Ctrl+P（打印）、Ctrl+U（查看源码）、F12（开发者工具）
+  disable_browser_shortcuts: true
+
+  # 默认拦截的快捷键（全局钩子，仅 keyboard_shortcuts=true 时生效）
+  # 被拦截的按键不会传递到系统任何应用，可通过 bridge API 动态调整
+  default_blocked_shortcuts: []
+
+  # 按键映射：物理键名 → 自定义名（通过 bridge.setKeyMapping 动态管理）
+  # 映射修饰键可一次性禁用该键的所有系统组合（如映射 Super_L 后 Win+D/R/E 全部失效）
+  key_mappings:
+    Super_L: "Win"
+    Super_R: "Win"
+    Alt_L: "Alt"
+    Alt_R: "Alt"
+    Control_L: "Ctrl"
+    Control_R: "Ctrl"
+
+  # ———— Windows 专属 ————
+  dark_title_bar: true     # 暗色标题栏（Win10 1809+）
+  round_corners: true      # 圆角窗口（Win11）
+  acrylic: true            # Acrylic 毛玻璃背景
 
 # ============================================================
 # 可构建的前端项目列表
-# 每个项目需在自身的 .env.production 中配置:
-#   VITE_REMOTE_API_URL  = 远程 API 服务器地址
-#   VITE_PROXY_PREFIXES  = 需要代理的路径前缀（逗号分隔）
-# 构建时 make 会读取这些配置注入到二进制中
+# 每个项目在自身的 .env.production 中配置 VITE_REMOTE_API_URL 等
 # ============================================================
 projects:
   - name: "doc"
@@ -106,4 +88,4 @@ projects:
   - name: "xx"
     vue_dir: "demo/xingxing"
     description: "hello"
-    external_html: true     # 外挂 HTML 模式：文件复制到 web/ 目录，不嵌入二进制
+    external_html: true    # 外挂 HTML 模式：文件复制到 web/ 目录，不嵌入二进制
