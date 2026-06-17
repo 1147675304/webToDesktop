@@ -276,6 +276,8 @@ func RunApp(addr, accessToken string, server *http.Server, store *Store, project
 		Acrylic:              AppCfg.Window.Acrylic,
 		WebViewBgTransparent: (AppCfg.Window.Acrylic && runtime.GOOS == "windows") || AppCfg.Window.WebViewBgTransparent,
 		InputPassthrough:     AppCfg.Window.InputPassthrough,
+		SystemTray:           AppCfg.Window.SystemTray,
+		TrayHideTaskbar:      AppCfg.Window.TrayHideTaskbar,
 		KeyboardShortcuts:    AppCfg.Window.KeyboardShortcuts,
 		KeyMappings:          AppCfg.Window.KeyMappings,
 	}

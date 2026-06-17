@@ -41,6 +41,37 @@ initBridge({ inputPassthrough: true, ready: startAnimation });
 // 启动器页面（有交互元素）：禁用穿透
 initBridge({ inputPassthrough: false });</CodeBlock>
 
+    <h3>系统托盘（跨平台）</h3>
+    <p class="desc">配置 <code>system_tray: true</code> 启用系统托盘模式，关闭窗口时隐藏到托盘图标而非退出程序。</p>
+
+    <h4>Windows</h4>
+    <ul class="feature-list">
+      <li>通过 <strong>Shell_NotifyIconW</strong> + <strong>WS_EX_TOOLWINDOW</strong> 实现</li>
+      <li>托盘图标右键菜单：显示窗口 / 退出</li>
+      <li>双击托盘图标恢复窗口</li>
+      <li><code>tray_hide_taskbar: true</code> 可隐藏任务栏图标（仅托盘可见）</li>
+    </ul>
+
+    <h4>Linux</h4>
+    <ul class="feature-list">
+      <li>通过 <strong>GtkStatusIcon</strong> 实现（GTK3，X11 桌面）</li>
+      <li>右键菜单：显示窗口 / 退出</li>
+      <li>拦截 <code>delete-event</code> 实现关闭到托盘</li>
+    </ul>
+
+    <CodeBlock lang="yaml">window:
+  system_tray: true         # 启用托盘模式
+  tray_hide_taskbar: true   # 托盘模式下隐藏任务栏图标</CodeBlock>
+
+    <h4>前端快捷键</h4>
+    <CodeBlock lang="javascript">// Alt+W 关闭到托盘，Alt+E 从托盘恢复
+window.__lhpanda__('registerShortcut', { keys: ['Alt+W', 'Alt+E'] });
+
+window.addEventListener('keyboard-shortcut', function(e) {
+  if (e.detail.key === 'Alt+W') window.__lhpanda__('closeWindow', {});
+  if (e.detail.key === 'Alt+E') window.__lhpanda__('showWindow', {});
+});</CodeBlock>
+
     <h3>前端示例代码</h3>
     <p class="hint">拖拽条 + 窗口控制按钮的完整实现，使用 Element Plus 图标。</p>
 
@@ -135,6 +166,7 @@ function resize(edge)      { call('resizeWindow', { edge }) }
         <tr><td><code>toggleMinimize</code></td><td>—</td><td>最小化到任务栏</td></tr>
         <tr><td><code>toggleMaximize</code></td><td>—</td><td>最大化 / 还原</td></tr>
         <tr><td><code>toggleFullscreen</code></td><td>—</td><td>全屏 / 退出全屏</td></tr>
+        <tr><td><code>showWindow</code></td><td>—</td><td>显示并置前窗口（从托盘恢复）</td></tr>
         <tr><td><code>restartApp</code></td><td>—</td><td>重启应用程序</td></tr>
         <tr><td><code>closeWindow</code></td><td>—</td><td>关闭窗口</td></tr>
       </tbody>

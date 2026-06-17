@@ -14,8 +14,9 @@ function initBridge(options) {
     window.__lhpanda__('setKeyMapping', { key: 'Control_L', mappedName: 'Ctrl' });
     window.__lhpanda__('setKeyMapping', { key: 'Control_R', mappedName: 'Ctrl' });
 
-    // 注册 Alt+W 关闭
+    // 注册 Alt+W 关闭 / Alt+E 恢复
     window.__lhpanda__('registerShortcut', { keys: ['Alt+W'] });
+    window.__lhpanda__('registerShortcut', { keys: ['Alt+E'] });
 
     // 注册效果切换快捷键（在效果页面生效）
     window.__lhpanda__('registerShortcut', { keys: ['Ctrl+Right'] });
@@ -153,6 +154,9 @@ window.addEventListener('keyboard-shortcut', function (e) {
     switch (e.detail.key) {
         case 'Alt+W':
             if (window.__lhpanda__) window.__lhpanda__('closeWindow', {});
+            break;
+        case 'Alt+E':
+            if (window.__lhpanda__) window.__lhpanda__('showWindow', {});
             break;
         case 'Ctrl+Right':
             navigateEffect(1);

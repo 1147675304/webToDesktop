@@ -10,7 +10,7 @@
 |------|------|--------|----------|
 | `doc` | `demo/doc` | Vue 3 + Element Plus | 完整文档站点、桥接 API、凭证存储、窗口控制、**按键映射与快捷键拦截** |
 | `serial` | `demo/serial` | Vue 3 | 串口扫描配置、双向数据通信、流式推送 |
-| `xx` | `demo/xingxing` | 纯 HTML | **多效果锁屏动画**（太阳系/粒子星系/极光/数字雨）、按键映射禁用系统快捷键、密码保护关闭、`Ctrl+→/←` 切换效果 |
+| `xx` | `demo/xingxing` | 纯 HTML | **多效果锁屏动画**（星空/太阳系/粒子星系/极光/数字雨）、透明穿透、`Alt+W`关闭到托盘、`Alt+E`恢复、`Ctrl+→/←` 切换效果 |
 
 构建后运行即可体验核心功能。详情参见各项目目录下的 `index.html` 或 Vue 源码。
 
@@ -118,6 +118,8 @@ projects:
 - `window.borderless: true` 无边框窗口
 - `window.acrylic: false` Windows 毛玻璃
 - `window.keyboard_shortcuts: true` 启用键盘快捷键拦截
+- `window.system_tray: true` 启用系统托盘（关闭→隐藏到托盘）
+- `window.tray_hide_taskbar: true` 托盘模式下隐藏任务栏图标
 - `window.key_mappings` 按键映射（由前端通过 `setKeyMapping` 动态管理，config.yaml 中留空）
 - `security.aes_key` 务必修改
 - `projects` 项目列表
@@ -181,6 +183,7 @@ const keyMappings = { Super_L: 'Win', Alt_L: 'Alt', Control_L: 'Ctrl' }
 window.addEventListener('keyboard-shortcut', (e) => {
   const key = keyMappings[e.detail.key] || e.detail.key
   if (key === 'Alt+W') window.__lhpanda__('closeWindow', {})
+  if (key === 'Alt+E') window.__lhpanda__('showWindow', {})
 })
 ```
 
@@ -224,7 +227,7 @@ BUILD_TAGS=minimal,noserial    # 组合
 |------|------|------|
 | `doc` | `demo/doc` | 完整文档站点（Vue 3），演示桥接 API、凭证存储、窗口控制、按键映射 |
 | `serial` | `demo/serial` | 串口调试工具（Vue 3），演示流式数据推送、双向通信 |
-| `xx` | `demo/xingxing` | 多效果锁屏动画（纯 HTML），演示按键映射、密码保护、效果切换 |
+| `xx` | `demo/xingxing` | 多效果锁屏动画（纯 HTML），演示托盘穿透、效果切换 |
 | `myapp` | `myapp/` | 纯 HTML 极简示例 |
 
 ## Go↔JS 流式数据推送

@@ -9,10 +9,11 @@ import (
 )
 
 // platformInit Linux 平台初始化：在 WebView 创建前调用。
-// 设置应用默认图标（所有窗口自动继承）。
+// 设置应用默认图标（所有窗口自动继承）+ 托盘图标路径。
 func platformInit() {
 	if AppIconPath != "" {
 		native.SetDefaultAppIcon(AppIconPath)
+		native.SetTrayIconPath(AppIconPath)
 	}
 }
 

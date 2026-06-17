@@ -542,6 +542,122 @@ static void disableKeyboardHook(GtkWindow *win) {
 
 	g_print("[native] keyboard hook disabled\n");
 }
+
+// ———— 系统托盘（GtkStatusIcon） ————
+static GtkStatusIcon *g_statusIcon = NULL;
+static GtkWindow *g_trayWindow = NULL;  // 关联的主窗口
+static gulong g_trayDeleteHandler = 0;  // delete-event 信号处理器 ID
+
+// 托盘菜单项回调
+static void onTrayShow(GtkMenuItem *item, gpointer data) {
+    (void)(item); (void)(data);
+    if (g_trayWindow) {
+        gtk_window_deiconify(g_trayWindow);
+        gtk_window_present(g_trayWindow);
+    }
+}
+
+static void onTrayQuit(GtkMenuItem *item, gpointer data) {
+    (void)(item); (void)(data);
+    // 移除托盘图标
+    if (g_statusIcon) {
+        gtk_status_icon_set_visible(g_statusIcon, FALSE);
+        g_object_unref(g_statusIcon);
+        g_statusIcon = NULL;
+    }
+    // 关闭窗口（此时不再拦截 delete-event）
+    if (g_trayWindow) {
+        if (g_trayDeleteHandler != 0) {
+            g_signal_handler_disconnect(g_trayWindow, g_trayDeleteHandler);
+            g_trayDeleteHandler = 0;
+        }
+        gtk_window_close(g_trayWindow);
+    }
+    gtk_main_quit();
+}
+
+// 左键双击：显示窗口
+static void onTrayActivate(GtkStatusIcon *icon, gpointer data) {
+    (void)(icon); (void)(data);
+    if (g_trayWindow) {
+        gtk_window_deiconify(g_trayWindow);
+        gtk_window_present(g_trayWindow);
+    }
+}
+
+// 右键菜单
+static void onTrayPopupMenu(GtkStatusIcon *icon, guint button, guint activate_time, gpointer data) {
+    (void)(icon); (void)(button); (void)(data);
+    GtkWidget *menu = gtk_menu_new();
+
+    GtkWidget *showItem = gtk_menu_item_new_with_label("显示窗口");
+    g_signal_connect(showItem, "activate", G_CALLBACK(onTrayShow), NULL);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), showItem);
+
+    GtkWidget *sep = gtk_separator_menu_item_new();
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), sep);
+
+    GtkWidget *quitItem = gtk_menu_item_new_with_label("退出");
+    g_signal_connect(quitItem, "activate", G_CALLBACK(onTrayQuit), NULL);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), quitItem);
+
+    gtk_widget_show_all(menu);
+    gtk_menu_popup(GTK_MENU(menu), NULL, NULL,
+        gtk_status_icon_position_menu, icon,
+        button, activate_time);
+}
+
+// 拦截窗口关闭 → 隐藏到托盘
+static gboolean onWindowDeleteForTray(GtkWidget *widget, GdkEvent *event, gpointer data) {
+    (void)(widget); (void)(event); (void)(data);
+    if (g_statusIcon) {
+        gtk_widget_hide(widget);
+        return TRUE; // 阻止默认关闭行为
+    }
+    return FALSE; // 正常关闭
+}
+
+static void createTrayIcon(GtkWindow *win, const char *iconPath) {
+    if (g_statusIcon) return;
+
+    g_trayWindow = win;
+    g_statusIcon = gtk_status_icon_new();
+
+    // 尝试从文件加载图标，失败则用系统默认图标
+    if (iconPath && iconPath[0]) {
+        gtk_status_icon_set_from_file(g_statusIcon, iconPath);
+    } else {
+        gtk_status_icon_set_from_icon_name(g_statusIcon, "applications-system");
+    }
+    gtk_status_icon_set_tooltip_text(g_statusIcon, "WebToDesktop");
+    gtk_status_icon_set_visible(g_statusIcon, TRUE);
+
+    // 信号连接
+    g_signal_connect(g_statusIcon, "activate", G_CALLBACK(onTrayActivate), NULL);
+    g_signal_connect(g_statusIcon, "popup-menu", G_CALLBACK(onTrayPopupMenu), NULL);
+
+    // 拦截窗口关闭 → 隐藏到托盘
+    g_trayDeleteHandler = g_signal_connect(win, "delete-event",
+        G_CALLBACK(onWindowDeleteForTray), NULL);
+
+    g_print("[native] createTrayIcon: OK\n");
+}
+
+static void removeTrayIcon(void) {
+    if (!g_statusIcon) return;
+
+    // 移除 delete-event 拦截
+    if (g_trayWindow && g_trayDeleteHandler != 0) {
+        g_signal_handler_disconnect(g_trayWindow, g_trayDeleteHandler);
+        g_trayDeleteHandler = 0;
+    }
+
+    gtk_status_icon_set_visible(g_statusIcon, FALSE);
+    g_object_unref(g_statusIcon);
+    g_statusIcon = NULL;
+    g_trayWindow = NULL;
+    g_print("[native] removeTrayIcon: OK\n");
+}
 */
 import "C"
 import (
@@ -605,6 +721,15 @@ func Apply(winPtr unsafe.Pointer, cfg WindowConfig) {
 		if len(cfg.KeyMappings) > 0 {
 			InitKeyMappings(cfg.KeyMappings)
 		}
+	}
+
+	// 9. 系统托盘图标
+	if cfg.SystemTray {
+		cPath := C.CString(g_trayIconPath)
+		C.createTrayIcon(win, cPath)
+		C.free(unsafe.Pointer(cPath))
+	} else {
+		C.removeTrayIcon()
 	}
 
 	// Acrylic/DarkTitleBar/RoundCorners 为 Windows 专属，Linux 忽略
@@ -695,6 +820,35 @@ func ToggleFullscreen(winPtr unsafe.Pointer) {
 // ToggleMinimize 最小化窗口到任务栏。
 func ToggleMinimize(winPtr unsafe.Pointer) {
 	C.gtk_window_iconify((*C.GtkWindow)(winPtr))
+}
+
+// InitSystemTray 初始化系统托盘图标（创建 GtkStatusIcon + 拦截 delete-event）。
+func InitSystemTray(winPtr unsafe.Pointer) {
+	if winPtr == nil {
+		return
+	}
+	cPath := C.CString(g_trayIconPath)
+	C.createTrayIcon((*C.GtkWindow)(winPtr), cPath)
+	C.free(unsafe.Pointer(cPath))
+}
+
+// RemoveSystemTray 移除系统托盘图标。
+func RemoveSystemTray(winPtr unsafe.Pointer) {
+	C.removeTrayIcon()
+}
+
+// ShowWindowRestore 显示窗口并置前（用于托盘"显示窗口"）。
+func ShowWindowRestore(winPtr unsafe.Pointer) {
+	win := (*C.GtkWindow)(winPtr)
+	C.gtk_window_deiconify(win)
+	C.gtk_window_present(win)
+}
+
+var g_trayIconPath string
+
+// SetTrayIconPath 设置托盘图标文件路径（Linux 在创建托盘前调用）。
+func SetTrayIconPath(path string) {
+	g_trayIconPath = path
 }
 
 // EnableInputPassthrough 启用输入穿透（Linux 下默认穿透，调用此函数无需额外操作）。

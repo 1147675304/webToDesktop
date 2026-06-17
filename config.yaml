@@ -54,6 +54,12 @@ window:
                         # false: 所有点击由本窗口捕获
                         # ★ Windows 注意：WS_EX_TRANSPARENT 使整个窗口穿透（含不透明区域），
                         #   如需精准控制，前端可通过 setInputPassthrough bridge 方法动态切换
+  system_tray: true       # 系统托盘模式：关闭窗口时最小化到托盘图标而非退出程序
+                        # true : 点击关闭按钮隐藏窗口到系统托盘，托盘图标右键可退出
+                        # false: 点击关闭按钮直接退出程序
+  tray_hide_taskbar: true # 托盘模式下隐藏任务栏图标（仅 Windows + system_tray=true 生效）
+                        # true : 窗口不出现在任务栏，仅系统托盘可见
+                        # false: 窗口同时在任务栏和系统托盘显示
 
   # ———— 键盘快捷键拦截 ————
   keyboard_shortcuts: true # 启用后拦截 Ctrl+S 和前端注册的快捷键

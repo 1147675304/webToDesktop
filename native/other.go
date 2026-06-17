@@ -45,6 +45,9 @@ func DisableKeyboardHook(winPtr unsafe.Pointer)                              {}
 func PollKbEvent() string                                                    { return "" }
 func syncBlockedKeysToC(keys []string)                                       {}
 func ToggleMinimize(winPtr unsafe.Pointer)                                   {}
+func InitSystemTray(winPtr unsafe.Pointer)                                   {}
+func RemoveSystemTray(winPtr unsafe.Pointer)                                 {}
+func ShowWindowRestore(winPtr unsafe.Pointer)                                {}
 func EnableInputPassthrough(winPtr unsafe.Pointer)                           {}
 func DisableInputPassthrough(winPtr unsafe.Pointer)                          {}
 func IsInputPassthrough(winPtr unsafe.Pointer) bool                          { return false }

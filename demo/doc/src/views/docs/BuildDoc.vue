@@ -157,6 +157,8 @@ BUILD_TAGS=minimal             # 仅核心模块
         <tr><td><code>window_position</code></td><td>string</td><td>"center"</td><td>位置：""/"center"/"x,y"</td></tr>
         <tr><td><code>webview_bg_transparent</code></td><td>bool</td><td>false</td><td>WebView 背景透明（跨平台）</td></tr>
         <tr><td><code>input_passthrough</code></td><td>bool</td><td>false</td><td>透明区域点击穿透（跨平台）</td></tr>
+        <tr><td><code>system_tray</code></td><td>bool</td><td>false</td><td>系统托盘模式（关闭→隐藏到托盘）</td></tr>
+        <tr><td><code>tray_hide_taskbar</code></td><td>bool</td><td>true</td><td>托盘模式下隐藏任务栏图标</td></tr>
         <tr><td><code>acrylic</code></td><td>bool</td><td>false</td><td>毛玻璃背景 (Win)</td></tr>
         <tr><td><code>round_corners</code></td><td>bool</td><td>true</td><td>圆角窗口 (Win11)</td></tr>
         <tr><td><code>dark_title_bar</code></td><td>bool</td><td>false</td><td>暗色标题栏 (Win10+)</td></tr>

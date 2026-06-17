@@ -286,7 +286,126 @@ static BOOL isPointInOpaqueRegionC(POINT pt) {
     return FALSE;
 }
 
+// ———— 系统托盘图标 ————
+#define WM_TRAYICON  (WM_APP + 100)
+#define IDM_TRAY_SHOW  3001
+#define IDM_TRAY_EXIT  3002
+
+static NOTIFYICONDATAW g_nid;
+static BOOL g_trayCreated = FALSE;
+static HMENU g_trayMenu = NULL;
+static WNDPROC g_origTrayProc = NULL;  // 托盘专用 WndProc 的原始句柄
+
+static void createTrayIcon(HWND hwnd) {
+    if (g_trayCreated) return;
+    HICON hIcon = (HICON)LoadImage(GetModuleHandle(NULL), MAKEINTRESOURCE(1),
+        IMAGE_ICON, GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), 0);
+    if (!hIcon) {
+        hIcon = LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(1));
+    }
+    ZeroMemory(&g_nid, sizeof(g_nid));
+    g_nid.cbSize = sizeof(NOTIFYICONDATAW);
+    g_nid.hWnd = hwnd;
+    g_nid.uID = 1;
+    g_nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
+    g_nid.uCallbackMessage = WM_TRAYICON;
+    g_nid.hIcon = hIcon ? hIcon : LoadIcon(NULL, IDI_APPLICATION);
+    wcscpy(g_nid.szTip, L"WebToDesktop");
+    Shell_NotifyIconW(NIM_ADD, &g_nid);
+    g_trayCreated = TRUE;
+    dbgLog("[native] createTrayIcon: OK");
+}
+
+static void removeTrayIcon(void) {
+    if (!g_trayCreated) return;
+    Shell_NotifyIconW(NIM_DELETE, &g_nid);
+    if (g_trayMenu) { DestroyMenu(g_trayMenu); g_trayMenu = NULL; }
+    g_trayCreated = FALSE;
+    dbgLog("[native] removeTrayIcon: OK");
+}
+
+// 隐藏窗口的任务栏按钮（WS_EX_TOOLWINDOW），托盘模式下使用
+static void hideFromTaskbar(HWND hwnd) {
+    LONG exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
+    SetWindowLong(hwnd, GWL_EXSTYLE, exStyle | WS_EX_TOOLWINDOW);
+    SetWindowPos(hwnd, NULL, 0, 0, 0, 0,
+        SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
+// 恢复窗口的任务栏按钮（移除 WS_EX_TOOLWINDOW）
+static void showInTaskbar(HWND hwnd) {
+    LONG exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
+    SetWindowLong(hwnd, GWL_EXSTYLE, exStyle & ~WS_EX_TOOLWINDOW);
+    SetWindowPos(hwnd, NULL, 0, 0, 0, 0,
+        SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
+// 完整禁用托盘模式：移除图标 + 恢复任务栏 + 还原 WndProc
+static void disableSystemTray(HWND hwnd) {
+    // 1. 移除托盘图标
+    if (g_trayCreated) {
+        Shell_NotifyIconW(NIM_DELETE, &g_nid);
+        if (g_trayMenu) { DestroyMenu(g_trayMenu); g_trayMenu = NULL; }
+        g_trayCreated = FALSE;
+    }
+    // 2. 恢复任务栏按钮
+    showInTaskbar(hwnd);
+    // 3. 如果安装了专用托盘 WndProc，还原原始 WndProc
+    if (g_origTrayProc) {
+        SetWindowLongPtr(hwnd, GWLP_WNDPROC, (LONG_PTR)g_origTrayProc);
+        g_origTrayProc = NULL;
+        dbgLog("[native] disableSystemTray: TrayWndProc removed");
+    }
+    dbgLog("[native] disableSystemTray: OK");
+}
+
+static void createTrayMenu(void) {
+    if (g_trayMenu) return;
+    g_trayMenu = CreatePopupMenu();
+    AppendMenuW(g_trayMenu, MF_STRING, IDM_TRAY_SHOW, L"显示窗口");
+    AppendMenuW(g_trayMenu, MF_SEPARATOR, 0, NULL);
+    AppendMenuW(g_trayMenu, MF_STRING, IDM_TRAY_EXIT, L"退出");
+}
+
+static void showTrayMenu(HWND hwnd) {
+    createTrayMenu();
+    POINT pt;
+    GetCursorPos(&pt);
+    SetForegroundWindow(hwnd);
+    TrackPopupMenu(g_trayMenu, TPM_RIGHTBUTTON | TPM_BOTTOMALIGN, pt.x, pt.y, 0, hwnd, NULL);
+}
+
 static LRESULT CALLBACK BorderlessWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+    // ★ 托盘消息（兼容无边框 + 托盘同时启用的场景）
+    if (msg == WM_TRAYICON) {
+        if (lp == WM_RBUTTONUP) {
+            showTrayMenu(hwnd);
+        } else if (lp == WM_LBUTTONDBLCLK) {
+            ShowWindow(hwnd, SW_SHOW);
+            SetForegroundWindow(hwnd);
+        }
+        return 0;
+    }
+    if (msg == WM_COMMAND) {
+        switch (LOWORD(wp)) {
+            case IDM_TRAY_SHOW:
+                ShowWindow(hwnd, SW_SHOW);
+                SetForegroundWindow(hwnd);
+                break;
+            case IDM_TRAY_EXIT:
+                removeTrayIcon();
+                PostQuitMessage(0);
+                break;
+        }
+        return 0;
+    }
+    if (msg == WM_CLOSE && g_trayCreated) {
+        ShowWindow(hwnd, SW_HIDE);
+        return 0;
+    }
+    if (msg == WM_DESTROY) {
+        removeTrayIcon();
+    }
     if (msg == WM_NCHITTEST) {
         POINT pt = { (short)LOWORD(lp), (short)HIWORD(lp) };
         ScreenToClient(hwnd, &pt);
@@ -318,6 +437,54 @@ static LRESULT CALLBACK BorderlessWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM
 static void enableBorderlessResize(HWND hwnd) {
     if (g_origBorderlessProc) return;
     g_origBorderlessProc = (WNDPROC)SetWindowLongPtr(hwnd, GWLP_WNDPROC, (LONG_PTR)BorderlessWndProc);
+}
+
+// ———— 系统托盘 WndProc（轻量，仅拦截托盘消息和 WM_CLOSE） ————
+
+static LRESULT CALLBACK TrayWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+    if (msg == WM_TRAYICON) {
+        if (lp == WM_RBUTTONUP) {
+            showTrayMenu(hwnd);
+        } else if (lp == WM_LBUTTONDBLCLK) {
+            ShowWindow(hwnd, SW_SHOW);
+            SetForegroundWindow(hwnd);
+        }
+        return 0;
+    }
+    if (msg == WM_COMMAND) {
+        switch (LOWORD(wp)) {
+            case IDM_TRAY_SHOW:
+                ShowWindow(hwnd, SW_SHOW);
+                SetForegroundWindow(hwnd);
+                break;
+            case IDM_TRAY_EXIT:
+                removeTrayIcon();
+                PostQuitMessage(0);
+                break;
+        }
+        return 0;
+    }
+    // 托盘模式：关闭 → 隐藏到托盘
+    if (msg == WM_CLOSE && g_trayCreated) {
+        ShowWindow(hwnd, SW_HIDE);
+        return 0;
+    }
+    if (msg == WM_DESTROY) {
+        removeTrayIcon();
+    }
+    return CallWindowProc(g_origTrayProc, hwnd, msg, wp, lp);
+}
+
+static void enableSystemTray(HWND hwnd) {
+    if (g_origBorderlessProc) {
+        // 已经有无边框 WndProc，不要覆盖它
+        // 托盘消息已在 BorderlessWndProc 中处理（通过 enableBorderlessResize 安装）
+        dbgLog("[native] enableSystemTray: BorderlessWndProc already active, skip TrayWndProc install");
+        return;
+    }
+    if (g_origTrayProc) return; // 已安装
+    g_origTrayProc = (WNDPROC)SetWindowLongPtr(hwnd, GWLP_WNDPROC, (LONG_PTR)TrayWndProc);
+    dbgLog("[native] enableSystemTray: TrayWndProc installed");
 }
 
 static void startWindowDrag(HWND hwnd) {
@@ -922,7 +1089,18 @@ func Apply(winPtr unsafe.Pointer, cfg WindowConfig) {
 	// 7. 窗口图标（从 EXE 资源加载，ID=1）
 	C.setWindowIcon(hwnd)
 
-	// 8. 输入穿透
+	// 8. 系统托盘（必须在窗口显示后创建）
+	if cfg.SystemTray {
+		if cfg.TrayHideTaskbar {
+			C.hideFromTaskbar(hwnd)
+		}
+		C.enableSystemTray(hwnd)
+		C.createTrayIcon(hwnd)
+	} else {
+		C.disableSystemTray(hwnd)
+	}
+
+	// 9. 输入穿透
 	if cfg.InputPassthrough {
 		C.setPassthroughEnabledC(1)
 		C.enableGlobalPassthrough(hwnd)
@@ -980,6 +1158,29 @@ func ToggleMinimize(winPtr unsafe.Pointer) {
 	hwnd := (C.HWND)(winPtr)
 	// SW_MINIMIZE = 6，将窗口最小化到任务栏
 	C.ShowWindow(hwnd, 6)
+}
+
+// InitSystemTray 初始化系统托盘图标（安装 TrayWndProc + 创建托盘图标）。
+// 需在 Dispatch 回调中调用。
+func InitSystemTray(winPtr unsafe.Pointer) {
+	if winPtr == nil {
+		return
+	}
+	hwnd := (C.HWND)(winPtr)
+	C.enableSystemTray(hwnd)
+	C.createTrayIcon(hwnd)
+}
+
+// RemoveSystemTray 移除系统托盘图标。
+func RemoveSystemTray(winPtr unsafe.Pointer) {
+	C.removeTrayIcon()
+}
+
+// ShowWindowRestore 显示窗口并置前（用于托盘"显示窗口"）。
+func ShowWindowRestore(winPtr unsafe.Pointer) {
+	hwnd := (C.HWND)(winPtr)
+	C.ShowWindow(hwnd, C.SW_SHOW)
+	C.SetForegroundWindow(hwnd)
 }
 
 // EnableInputPassthrough 启用全局输入穿透（WS_EX_TRANSPARENT，适合纯视觉叠加层）。

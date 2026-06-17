@@ -37,6 +37,8 @@ type WindowConfig struct {
 	Opacity              float64           `yaml:"opacity"`
 	WebViewBgTransparent bool              `yaml:"webview_bg_transparent"`
 	InputPassthrough     bool              `yaml:"input_passthrough"` // 透明区域点击穿透
+	SystemTray           bool              `yaml:"system_tray"`       // 系统托盘：关闭时隐藏到托盘
+	TrayHideTaskbar      bool              `yaml:"tray_hide_taskbar"` // 托盘模式下隐藏任务栏图标
 	WindowPosition       string            `yaml:"window_position"`
 	DarkTitleBar         bool              `yaml:"dark_title_bar"`
 	RoundCorners         bool              `yaml:"round_corners"`
@@ -86,6 +88,8 @@ type WindowConfigData struct {
 	Opacity              float64 `json:"opacity"`
 	WebViewBgTransparent bool    `json:"webview_bg_transparent"`
 	InputPassthrough     bool    `json:"input_passthrough"`
+	SystemTray           bool    `json:"system_tray"`
+	TrayHideTaskbar      bool    `json:"tray_hide_taskbar"`
 	WindowPosition       string  `json:"window_position"`
 	DarkTitleBar         bool    `json:"dark_title_bar"`
 	RoundCorners         bool    `json:"round_corners"`
@@ -107,6 +111,8 @@ func UpdateAppWindowConfig(cfg *WindowConfigData) {
 	AppCfg.Window.Opacity = cfg.Opacity
 	AppCfg.Window.WebViewBgTransparent = cfg.WebViewBgTransparent
 	AppCfg.Window.InputPassthrough = cfg.InputPassthrough
+	AppCfg.Window.SystemTray = cfg.SystemTray
+	AppCfg.Window.TrayHideTaskbar = cfg.TrayHideTaskbar
 	AppCfg.Window.WindowPosition = cfg.WindowPosition
 	AppCfg.Window.DarkTitleBar = cfg.DarkTitleBar
 	AppCfg.Window.RoundCorners = cfg.RoundCorners

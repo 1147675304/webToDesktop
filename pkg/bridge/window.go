@@ -107,6 +107,23 @@ func (b *Bridge) HandleToggleMinimize(params map[string]interface{}) (interface{
 	return map[string]interface{}{"ok": true}, nil
 }
 
+// HandleShowWindow 显示并置前窗口（从托盘恢复）。
+//
+// JS 调用: window.__lhpanda__('showWindow')
+// 返回:    {ok: true}
+//
+// 实现:
+//
+//	Windows → ShowWindow(hwnd, SW_SHOW) + SetForegroundWindow
+//	Linux   → gtk_window_deiconify + gtk_window_present
+func (b *Bridge) HandleShowWindow(params map[string]interface{}) (interface{}, error) {
+	if b.wv == nil || b.winPtr == nil {
+		return nil, fmt.Errorf("窗口未就绪")
+	}
+	b.wv.Dispatch(func() { native.ShowWindowRestore(b.winPtr) })
+	return map[string]interface{}{"ok": true}, nil
+}
+
 // handleResizeWindow 从指定窗口边缘/角落触发系统级窗口缩放。
 //
 // JS 调用: window.__lhpanda__('resizeWindow', {edge: 11})

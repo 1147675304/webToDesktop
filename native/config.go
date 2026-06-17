@@ -15,6 +15,12 @@ type WindowConfig struct {
 	// 透明区域点击穿透：false=本窗口捕获所有点击，true=透明区域点击透传到下层
 	InputPassthrough bool
 
+	// 系统托盘模式：关闭窗口时隐藏到托盘图标
+	SystemTray bool
+
+	// 托盘模式下隐藏任务栏图标（WS_EX_TOOLWINDOW），默认 true
+	TrayHideTaskbar bool
+
 	// 是否移除标题栏和边框（无边框窗口）
 	Borderless bool
 
