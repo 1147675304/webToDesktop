@@ -3,7 +3,6 @@
 package pkg
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -13,7 +12,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"log"
 	"mime"
 	"net"
 	"net/http"
@@ -100,7 +98,7 @@ func (h *proxyHandler) accessTokenQuery(r *http.Request) string {
 		return token
 	}
 	// 3. 自定义请求头（XHR/fetch 由前端 JS 手动添加）
-	return r.Header.Get("X-WTD-Token")
+	return r.Header.Get("X-Desktop-Signature")
 }
 
 // verifyAccessToken 校验请求是否携带有效的访问令牌。
@@ -255,19 +253,21 @@ func (h *proxyHandler) handleProxy(w http.ResponseWriter, r *http.Request) {
 				bodyBytes, _ := io.ReadAll(r.Body)
 				r.Body.Close()
 				bodyStr := string(bodyBytes)
-				if strings.Contains(bodyStr, "__DESKTOP_PWD__") {
+				hasPlaceholder := strings.Contains(bodyStr, "__DESKTOP_PWD__")
+				if hasPlaceholder {
 					bodyStr = strings.ReplaceAll(bodyStr, "__DESKTOP_PWD__", cred.Password)
-					r.Body = io.NopCloser(strings.NewReader(bodyStr))
-					r.ContentLength = int64(len(bodyStr))
-				} else {
-					r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
-					r.ContentLength = int64(len(bodyBytes))
 				}
+				r.Body = io.NopCloser(strings.NewReader(bodyStr))
+				r.ContentLength = int64(len(bodyStr))
 			}
 		}
 	}
 
-	log.Printf("[proxy] %s %s → %s%s", r.Method, r.URL.Path, h.remoteURL.Host, r.URL.Path)
+	// ★ 修复 Host 头：ReverseProxy 只修改了 req.URL.Host 但未修改 req.Host，
+	// HTTP 客户端优先使用 req.Host（仍为原始请求的 127.0.0.1:port），
+	// 导致远程服务器因虚拟主机不匹配返回 404。
+	r.Host = h.remoteURL.Host
+
 	h.reverseProxy.ServeHTTP(w, r)
 }
 

@@ -15,8 +15,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/lhpanda/webtodesktop/native"
 	webview "github.com/webview/webview_go"
+
+	"github.com/lhpanda/webtodesktop/native"
 )
 
 // isWSL 检测当前是否运行在 WSL（Windows Subsystem for Linux）环境中。
@@ -165,25 +166,39 @@ func buildInjectJS(css string, disableCtxMenu bool, disableBrowserShortcuts bool
 (function(){
 	var token = ` + "`" + accessToken + "`" + `;
 
-	// 拦截 fetch，自动添加 X-WTD-Token 请求头
+	// 拦截 fetch，仅对同源请求自动添加 X-WTD-Token 请求头
 	var origFetch = window.fetch;
 	window.fetch = function(url, opts) {
 		opts = opts || {};
 		opts.headers = opts.headers || {};
-		if (opts.headers instanceof Headers) {
-			opts.headers.set('X-WTD-Token', token);
-		} else {
-			opts.headers['X-WTD-Token'] = token;
+		// 判断是否同源：相对路径或与页面同源的绝对 URL
+		var urlStr = (typeof url === 'string') ? url : (url ? url.url || url.href || '' : '');
+		var isSameOrigin = (urlStr.startsWith('/') && !urlStr.startsWith('//'))
+			|| urlStr.indexOf(window.location.origin) === 0
+			|| !urlStr.startsWith('http');
+		if (isSameOrigin) {
+			if (opts.headers instanceof Headers) {
+				opts.headers.set('X-WTD-Token', token);
+			} else {
+				opts.headers['X-WTD-Token'] = token;
+			}
 		}
 		return origFetch.call(window, url, opts);
 	};
 
-	// 拦截 XMLHttpRequest，自动添加 X-WTD-Token 请求头
+	// 拦截 XMLHttpRequest，仅对同源请求自动添加 X-WTD-Token 请求头
 	var origOpen = XMLHttpRequest.prototype.open;
 	XMLHttpRequest.prototype.open = function(method, url) {
+		var _url = url;
 		this.addEventListener('readystatechange', function() {
 			if (this.readyState === 1) {
-				this.setRequestHeader('X-WTD-Token', token);
+				var urlStr = (typeof _url === 'string') ? _url : '';
+				var isSameOrigin = (urlStr.startsWith('/') && !urlStr.startsWith('//'))
+					|| urlStr.indexOf(window.location.origin) === 0
+					|| !urlStr.startsWith('http');
+				if (isSameOrigin) {
+					this.setRequestHeader('X-WTD-Token', token);
+				}
 			}
 		});
 		return origOpen.apply(this, arguments);
