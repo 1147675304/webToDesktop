@@ -47,8 +47,11 @@ func StartServer(staticFS fs.FS, remoteURL string, proxyPrefixes []string, store
 		return "", "", nil, fmt.Errorf("无法监听端口: %w", err)
 	}
 
+	// 从监听地址中提取端口号，用于构造实例隔离的 Cookie 名称
+	_, port, _ := net.SplitHostPort(listener.Addr().String())
+
 	mux := http.NewServeMux()
-	mux.Handle("/", NewProxyHandler(staticFS, remoteURL, proxyPrefixes, store, signHeader, token))
+	mux.Handle("/", NewProxyHandler(staticFS, remoteURL, proxyPrefixes, store, signHeader, token, port))
 
 	server := &http.Server{
 		Handler:      mux,
@@ -84,18 +87,20 @@ type proxyHandler struct {
 	reverseProxy  *httputil.ReverseProxy
 	signHeader    string // 桌面端签名请求头名称（来自 .env.production 的 VITE_DESKTOP_SIGN_HEADER）
 	accessToken   string // 随机访问令牌，防止浏览器访问
+	cookieName    string // 实例隔离的 Cookie 名称（含端口号），避免多实例 Cookie 冲突
 }
 
-// accessTokenQuery 从请求中提取访问令牌（优先级: Cookie > 查询参数 > 请求头）。
+// accessTokenQuery 从请求中提取访问令牌（优先级: 查询参数 > Cookie > 请求头）。
+// ★ 查询参数优先于 Cookie，确保初始导航不会被其他实例的 Cookie 干扰。
 // 返回令牌值，未找到则返回空字符串。
 func (h *proxyHandler) accessTokenQuery(r *http.Request) string {
-	// 1. Cookie（所有同域请求自动携带，最可靠）
-	if c, err := r.Cookie(accessTokenKey); err == nil && c.Value != "" {
-		return c.Value
-	}
-	// 2. URL 查询参数（初始导航时使用）
+	// 1. URL 查询参数（初始导航时使用，优先级最高，避免多实例 Cookie 污染）
 	if token := r.URL.Query().Get(accessTokenKey); token != "" {
 		return token
+	}
+	// 2. Cookie（所有同域请求自动携带，使用实例隔离的 cookieName）
+	if c, err := r.Cookie(h.cookieName); err == nil && c.Value != "" {
+		return c.Value
 	}
 	// 3. 自定义请求头（XHR/fetch 由前端 JS 手动添加）
 	return r.Header.Get("X-Desktop-Signature")
@@ -109,11 +114,12 @@ func (h *proxyHandler) verifyAccessToken(r *http.Request) bool {
 }
 
 // setAccessTokenCookie 当请求通过查询参数验证令牌后，设置 Cookie 供后续请求自动携带。
+// 使用实例隔离的 cookieName（含端口后缀），避免多实例 Cookie 互相覆盖。
 func (h *proxyHandler) setAccessTokenCookie(w http.ResponseWriter, r *http.Request) {
 	token := r.URL.Query().Get(accessTokenKey)
 	if token == h.accessToken {
 		http.SetCookie(w, &http.Cookie{
-			Name:     accessTokenKey,
+			Name:     h.cookieName,
 			Value:    token,
 			Path:     "/",
 			HttpOnly: true,
@@ -122,7 +128,7 @@ func (h *proxyHandler) setAccessTokenCookie(w http.ResponseWriter, r *http.Reque
 	}
 }
 
-func NewProxyHandler(staticFS fs.FS, remoteURL string, proxyPrefixes []string, store *Store, signHeader string, accessToken string) http.Handler {
+func NewProxyHandler(staticFS fs.FS, remoteURL string, proxyPrefixes []string, store *Store, signHeader string, accessToken string, port string) http.Handler {
 	target, _ := url.Parse(remoteURL)
 	// 默认头名称
 	if signHeader == "" {
@@ -135,6 +141,7 @@ func NewProxyHandler(staticFS fs.FS, remoteURL string, proxyPrefixes []string, s
 		store:         store,
 		signHeader:    strings.TrimSpace(signHeader),
 		accessToken:   accessToken,
+		cookieName:    accessTokenKey + port, // 实例隔离: _wtd_<port>
 	}
 	if target != nil {
 		h.reverseProxy = httputil.NewSingleHostReverseProxy(target)

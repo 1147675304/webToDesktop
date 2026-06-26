@@ -1,5 +1,3 @@
-// tools/desktop/main.go
-// 桌面版 EXE 主入口
 package main
 
 import (
